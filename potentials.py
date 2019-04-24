@@ -6,7 +6,7 @@ Author: A. P. Naik
 Description: Milky Way potential/density
 """
 import numpy as np
-from constants import G, M_sun, kpc, pi, pc
+from .constants import G, M_sun, kpc, pi, pc
 sqrt = np.sqrt
 
 # default values for Miyamoto-Nagai disc, from LM10
@@ -300,8 +300,9 @@ def NFW_acceleration(pos, rho_0=rho_0_NFW, r_s=r_s_NFW):
     return acc
 
 
-if __name__ == '__main__':
+def MW_acceleration(pos):
 
-    pos_array = -30*kpc + 60*kpc*np.random.rand(1000, 3)
-    pos_single = np.array([10*kpc, -10*kpc, 0.01*kpc])
-    pos_array[250] = pos_single
+    acc = (NFW_acceleration(pos) +
+           hernquist_acceleration(pos) +
+           miyamoto_acceleration(pos))
+    return acc
