@@ -249,10 +249,6 @@ class Grid2D:
         if pos.ndim == 1:
             R = np.linalg.norm(pos[:2])
             z = pos[2]
-            #r = np.sqrt(R**2+z**2)
-            #theta = np.arctan2(R, z)
-            #dfdr = self.dfdr_spline.ev(np.log(r), theta)
-            #dfdth = self.dfdth_spline.ev(np.log(r), theta)
         else:
             R = np.linalg.norm(pos[:, :2], axis=-1)
             z = pos[:, 2]
@@ -260,3 +256,4 @@ class Grid2D:
         theta = np.arctan2(R, z)
         dfdr = self.dfdr_spline.ev(np.log(r), theta)
         dfdth = self.dfdth_spline.ev(np.log(r), theta)
+        return dfdr, dfdth

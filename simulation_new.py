@@ -6,7 +6,7 @@ Author: A. P. Naik
 Description:
 """
 import numpy as np
-from constants import kpc, M_sun, pi
+from .constants import kpc, M_sun, pi
 from .tracers import sample_hernquist
 from .potentials import MW_acceleration
 from .util import print_progress
@@ -37,7 +37,7 @@ class Simulation:
         N_frames : int
         """
 
-        if modgrav not in ['None']:
+        if modgrav not in [None]:
             raise ValueError("Unrecognised value for 'modgrav'")
         self.modgrav = modgrav
         self.t_max = t_max

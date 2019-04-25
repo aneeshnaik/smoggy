@@ -6,8 +6,8 @@ Author: A. P. Naik
 Description: Various procedures to initialise tracer particles.
 """
 from emcee import EnsembleSampler as Sampler
-from constants import G, pi
-from util import print_progress
+from .constants import G, pi
+from .util import print_progress
 import numpy as np
 sqrt = np.sqrt
 

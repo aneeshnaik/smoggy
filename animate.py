@@ -9,7 +9,7 @@ import pickle
 import matplotlib.pyplot as plt
 from matplotlib.animation import FuncAnimation
 from matplotlib.lines import Line2D
-from constants import kpc
+from .constants import kpc
 plt.rcParams['text.usetex'] = True
 plt.style.use('dark_background')
 
