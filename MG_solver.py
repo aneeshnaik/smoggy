@@ -247,13 +247,26 @@ class Grid2D:
     def accel(self, pos):
 
         if pos.ndim == 1:
-            R = np.linalg.norm(pos[:2])
+            x = pos[0]
+            y = pos[1]
             z = pos[2]
+            R = np.sqrt(x**2+y**2)
         else:
-            R = np.linalg.norm(pos[:, :2], axis=-1)
+            x = pos[:, 0]
+            y = pos[:, 1]
             z = pos[:, 2]
+            R = np.linalg.norm(pos[:, :2], axis=-1)
+
         r = np.sqrt(R**2+z**2)
         theta = np.arctan2(R, z)
         dfdr = self.dfdr_spline.ev(np.log(r), theta)
         dfdth = self.dfdth_spline.ev(np.log(r), theta)
-        return dfdr, dfdth
+
+        dfdx = dfdr*x/r + dfdth*x*z/(R*r**2)
+        dfdy = dfdr*y/r + dfdth*y*z/(R*r**2)
+        dfdz = dfdr*z/r - dfdth*R/r**2
+
+        if pos.ndim == 1:
+            return 0.5*c**2*np.array([dfdx, dfdy, dfdz])
+        else:
+            return 0.5*c**2*np.array([dfdx, dfdy, dfdz]).T
