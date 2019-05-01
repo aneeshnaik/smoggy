@@ -6,7 +6,7 @@ Author: A. P. Naik
 Description:
 """
 import numpy as np
-from .constants import kpc, Mpc, M_sun, pi
+from .constants import kpc, Mpc, M_sun
 from .tracers import sample_hernquist
 from .potentials import MW_acceleration
 from .potentials import hernquist_acceleration as h_acc
