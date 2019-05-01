@@ -1,73 +1,32 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-Created: 7th April 2019
+Created: April 2019
 Author: A. P. Naik
-Description: Stellar stream simulation
+Description:
 """
 import numpy as np
-from .constants import M_sun, kpc, pi
-from .util import print_progress, NFW_acc, hernquist_acc, NFW_M_enc
+from .constants import kpc, Mpc, M_sun
 from .tracers import sample_hernquist
+from .potentials import MW_acceleration
+from .potentials import hernquist_acceleration as h_acc
+from .potentials import hernquist_density as h_rho
+from .potentials import NFW_density as NFW_rho
+from .potentials import miyamoto_density as disc_rho
+from .util import print_progress
+from .MG_solver import Grid2D
 
 
 class Simulation:
-    """
-    Class setting up system of Milky Way (NFW), satellite (Hernquist), and
-    tracer particles.
+    def __init__(self, sat_x0=[60*kpc, 0, 0], sat_v0=[0, 1e+5, 0],
+                 sat_r=0.5*kpc, sat_M=5e+8*M_sun):
 
-    Parameters
-    ----------
-    MW_M_vir : float
-        Virial mass of the Milky Way, in kg.
-    MW_r_vir : float
-        Virial radius of the Milky Way, in metres.
-    MW_c_vir : float
-        Virial concentration (i.e. virial radius / NFW scale radius).
-    sat_r : float
-        Hernquist radius of satellite. UNITS: metres
-    sat_M : float
-        Total mass of satellite. UNITS: kg
-    sat_x0 : 1D array, length 3.
-        Initial position of satellite with respect to galactic centre.
-        UNITS: metres
-    sat_v0 : 1D array, length 3.
-        Initial velocity of satellite with respect to galactic centre.
-        UNITS: m/s
-
-    Attributes
-    ----------
-    All of the above parameters are stored as class attributes, in addition to
-    the following:
-
-    tracers : bool
-        Flag indicating whether there are tracer particles, experiencing the
-        gravitational field of both the Milky Way and the satellite. This is
-        initially set to False, but is switched on by the 'add_tracers' method.
-
-    Methods
-    -------
-    add_tracers :
-        Add tracer particles to the simulation.
-    """
-    def __init__(self, MW_M_vir=1e+12*M_sun, MW_r_vir=200*kpc, MW_c_vir=10,
-                 sat_r=0.5*kpc, sat_M=5e+8*M_sun,
-                 sat_x0=[60*kpc, 0, 0], sat_v0=[0, 1e+5, 0]):
-
-        self.MW_M_vir = MW_M_vir
-        self.MW_r_vir = MW_r_vir
-        self.MW_c_vir = MW_c_vir
         self.sat_r = sat_r
         self.sat_M = sat_M
         self.sat_x0 = np.array(sat_x0, dtype=np.float64)
         self.sat_v0 = np.array(sat_v0, dtype=np.float64)
         self.sat_x = np.copy(self.sat_x0)
         self.sat_v = np.copy(self.sat_v0)
-
-        # # convert MW parameters to canonical NFW parameters
-        self.MW_r_NFW = self.MW_r_vir/self.MW_c_vir
-        c_fac = np.log(1+self.MW_c_vir) - self.MW_c_vir/(1+self.MW_c_vir)
-        self.MW_rho_NFW = self.MW_M_vir/(4*pi*self.MW_r_NFW**3*c_fac)
 
         self.tracers = False
 
@@ -152,9 +111,9 @@ class Simulation:
         self.DM_v = self.DM_v - self.sat_v0
         self.stars_v = self.stars_v - self.sat_v0
 
-        DM_acc = hernquist_acc(self.DM_x, x0, M, a)
+        DM_acc = h_acc(self.DM_x-x0, M, a)
         DM_v_half = self.DM_v - 0.5*dt*DM_acc
-        stars_acc = hernquist_acc(self.stars_x, x0, M, a)
+        stars_acc = h_acc(self.stars_x-x0, M, a)
         stars_v_half = self.stars_v - 0.5*dt*stars_acc
 
         print("Relaxing tracer particles...")
@@ -162,8 +121,8 @@ class Simulation:
 
             print_progress(i, N_iter, interval=N_iter//50)
 
-            DM_acc = hernquist_acc(self.DM_x, x0, M, a)
-            stars_acc = hernquist_acc(self.stars_x, x0, M, a)
+            DM_acc = h_acc(self.DM_x-x0, M, a)
+            stars_acc = h_acc(self.stars_x-x0, M, a)
             DM_v_half = DM_v_half + DM_acc*dt
             stars_v_half = stars_v_half + stars_acc*dt
             self.DM_x = self.DM_x + DM_v_half*dt
@@ -177,13 +136,12 @@ class Simulation:
 
         return
 
-    def run(self, beta, r_screen, t_max=1e+17, dt=1e+12, N_frames=1000):
+    def run(self, modgrav=False, fR0=None,
+            t_max=1e+17, dt=1e+12, N_frames=1000):
         """
 
         Parameters
         ----------
-        beta : float
-        r_screen : float
         t_max : float
             Total relaxation time. UNITS: seconds
         dt : float
@@ -192,14 +150,14 @@ class Simulation:
         N_frames : int
         """
 
-        self.beta = beta
-        self.r_screen = r_screen
+        self.modgrav = modgrav
+        if modgrav:
+            assert fR0 is not None
+        self.fR0 = fR0
         self.t_max = t_max
         self.dt = dt
-        rho_0 = self.MW_rho_NFW
-        r_s = self.MW_r_NFW
-        M = self.sat_M
-        a = self.sat_r
+        sat_M = self.sat_M
+        sat_r = self.sat_r
 
         # N_iter is number of iterations, need to be integer multiple of
         # N_frames, so that a snapshot can be made at a regular interval
@@ -214,41 +172,35 @@ class Simulation:
             self.DM_tr = np.copy(self.DM_x0)
             self.stars_tr = np.copy(self.stars_x0)
 
-        # mass enclosed within screening radius
-        M_screen = NFW_M_enc(r_screen, self.MW_rho_NFW, self.MW_r_NFW)
+        if modgrav:
+            self.grid = Grid2D(ngrid=200, nth=101, rmax=10*Mpc)
+            self.grid.set_cosmology(h=0.7, omega_m=0.3)
 
-        sat_r = np.linalg.norm(self.sat_x)
-        DM_r = np.linalg.norm(self.DM_x, axis=-1)[:, None]
-        stars_r = np.linalg.norm(self.stars_x, axis=-1)[:, None]
+            self.grid.drho = np.zeros(self.grid.grid_shape)
+            for i in range(self.grid.ngrid):
+                for j in range(self.grid.nth):
+                    x = self.grid.r[i]*np.sin(self.grid.th[j])
+                    y = 0
+                    z = self.grid.r[i]*np.cos(self.grid.th[j])
+                    pos = np.array([x, y, z])
+                    rho = h_rho(pos) + NFW_rho(pos) + disc_rho(pos)
+                    self.grid.drho[i, j] = rho
 
-        # calculate enhancement of acceleration on satellite and DM
-        # if satellite is outside r_screen, then enhance
-        if sat_r > r_screen:
-            sat_M_enc = NFW_M_enc(sat_r, self.MW_rho_NFW, self.MW_r_NFW)
-            sat_MG = 1+2*beta**2*(1-M_screen/sat_M_enc)
-        else:
-            sat_MG = 1
-        if self.tracers:
-            # if DM is outside r_screen, then enhance
-            DM_MG = np.ones_like(DM_r)
-            DM_M_enc = NFW_M_enc(DM_r, self.MW_rho_NFW, self.MW_r_NFW)
-            inds = np.where(DM_r > r_screen)[0]
-            DM_MG[inds] = 1+2*beta**2*(1-M_screen/DM_M_enc[inds])
-            # enhancement for DM acceleration from satellite
-            beta_eff = np.zeros_like(DM_r)
-            if sat_r > r_screen:
-                beta_eff[inds] = beta
-            fac = (1+2*beta_eff**2)
+            self.grid.iter_solve(niter=1000000, F0=fR0, verbose=True)
 
         # desynchronise velocities for leapfrog integration
-        sat_acc = sat_MG*NFW_acc(self.sat_x, sat_r, np.zeros(3,), rho_0, r_s)
+        sat_acc = MW_acceleration(self.sat_x)
+        if modgrav:
+                sat_acc += self.grid.accel(self.sat_x)
         sat_v_half = self.sat_v - 0.5*dt*sat_acc
         if self.tracers:
-            DM_acc = DM_MG*NFW_acc(self.DM_x, DM_r, np.zeros(3,), rho_0, r_s)
-            DM_acc += fac*hernquist_acc(self.DM_x, self.sat_x, M, a)
+            DM_acc = MW_acceleration(self.DM_x)
+            DM_acc += (4/3)*h_acc(self.DM_x-self.sat_x, sat_M, sat_r)
+            if modgrav:
+                DM_acc += self.grid.accel(self.DM_x)
+            stars_acc = MW_acceleration(self.stars_x)
+            stars_acc += h_acc(self.stars_x-self.sat_x, sat_M, sat_r)
             DM_v_half = self.DM_v - 0.5*dt*DM_acc
-            stars_acc = NFW_acc(self.stars_x, stars_r, np.zeros(3,), rho_0, r_s)
-            stars_acc += hernquist_acc(self.stars_x, self.sat_x, M, a)
             stars_v_half = self.stars_v - 0.5*dt*stars_acc
 
         # main loop
@@ -257,44 +209,25 @@ class Simulation:
 
             print_progress(i, N_iter, interval=N_iter//50)
 
-            sat_r = np.linalg.norm(self.sat_x)
-            DM_r = np.linalg.norm(self.DM_x, axis=-1)[:, None]
-            stars_r = np.linalg.norm(self.stars_x, axis=-1)[:, None]
-
-            # calculate enhancement of acceleration on satellite and DM
-            # if satellite is outside r_screen, then enhance
-            if sat_r > r_screen:
-                sat_M_enc = NFW_M_enc(sat_r, self.MW_rho_NFW, self.MW_r_NFW)
-                sat_MG = 1+2*beta**2*(1-M_screen/sat_M_enc)
-            else:
-                sat_MG = 1
-            if self.tracers:
-                # if DM is outside r_screen, then enhance
-                DM_MG = np.ones_like(DM_r)
-                DM_M_enc = NFW_M_enc(DM_r, self.MW_rho_NFW, self.MW_r_NFW)
-                inds = np.where(DM_r > r_screen)[0]
-                DM_MG[inds] = 1+2*beta**2*(1-M_screen/DM_M_enc[inds])
-                # enhancement for DM acceleration from satellite
-                beta_eff = np.zeros_like(DM_r)
-                if sat_r > r_screen:
-                    beta_eff[inds] = beta
-                fac = (1+2*beta_eff**2)
-
             # calculate accelerations
-            sat_acc = sat_MG*NFW_acc(self.sat_x, sat_r, np.zeros(3,), rho_0, r_s)
+            sat_acc = MW_acceleration(self.sat_x)
+            if modgrav:
+                sat_acc += self.grid.accel(self.sat_x)
             if self.tracers:
-                DM_acc = DM_MG*NFW_acc(self.DM_x, DM_r, np.zeros(3,), rho_0, r_s)
-                DM_acc += fac*hernquist_acc(self.DM_x, self.sat_x, M, a)
-                stars_acc = NFW_acc(self.stars_x, stars_r, np.zeros(3,), rho_0, r_s)
-                stars_acc += hernquist_acc(self.stars_x, self.sat_x, M, a)
+                DM_acc = MW_acceleration(self.DM_x)
+                DM_acc += (4/3)*h_acc(self.DM_x-self.sat_x, sat_M, sat_r)
+                if modgrav:
+                    DM_acc += self.grid.accel(self.DM_x)
+                stars_acc = MW_acceleration(self.stars_x)
+                stars_acc += h_acc(self.stars_x-self.sat_x, sat_M, sat_r)
 
             # timestep
             sat_v_half = sat_v_half + sat_acc*dt
             self.sat_x = self.sat_x + sat_v_half*dt
             if self.tracers:
                 DM_v_half = DM_v_half + DM_acc*dt
-                self.DM_x = self.DM_x + DM_v_half*dt
                 stars_v_half = stars_v_half + stars_acc*dt
+                self.DM_x = self.DM_x + DM_v_half*dt
                 self.stars_x = self.stars_x + stars_v_half*dt
 
             # snapshot
@@ -306,6 +239,7 @@ class Simulation:
 
         # resynchronise velocities
         self.sat_v = sat_v_half - 0.5*dt*sat_acc
-        self.DM_v = DM_v_half - 0.5*dt*DM_acc
-        self.stars_v = stars_v_half - 0.5*dt*stars_acc
+        if self.tracers:
+            self.DM_v = DM_v_half - 0.5*dt*DM_acc
+            self.stars_v = stars_v_half - 0.5*dt*stars_acc
         return
