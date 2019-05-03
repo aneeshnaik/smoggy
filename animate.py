@@ -5,15 +5,10 @@ Created: 8th April 2019
 Author: A. P. Naik
 Description: Animate trajectories
 """
-import pickle
 import matplotlib.pyplot as plt
 from matplotlib.animation import FuncAnimation
 from matplotlib.lines import Line2D
-import numpy as np
 from .constants import kpc
-import matplotlib.patches as patches
-import matplotlib.path as path
-from .util import print_progress
 plt.rcParams['text.usetex'] = True
 plt.style.use('dark_background')
 
@@ -32,11 +27,7 @@ def movie_update(num, sat, tracer1, tracer2, line, s1, s2):
     return (line, s1, s2)
 
 
-def movie(filename, length=10):
-
-    f = open(filename, 'rb')
-    s = pickle.load(f)
-    f.close()
+def movie(s, length=10):
 
     fig = plt.figure(figsize=(8, 8))
     ax1 = fig.add_axes([0.1, 0.1, 0.8, 0.8])
@@ -47,9 +38,6 @@ def movie(filename, length=10):
 
     N_frames = sat_t.shape[0]
     interval = length*1000/(N_frames-1)
-
-    st = r'$\beta={0:.1f},\ r={1:.1f}$'.format(s.beta, s.r_screen/kpc)
-    ax1.text(0.05, 0.95, st, transform=ax1.transAxes, va='center', ha='left')
 
     # show initial positions in background
     ax1.plot(sat_t[:, 0], sat_t[:, 1], ls='dashed', c='white')
@@ -62,8 +50,6 @@ def movie(filename, length=10):
     s2 = ax1.scatter(stars_t[:, 0, 0], stars_t[:, 1, 0], s=1, c=green1)
 
     # central MW blob
-    circ = plt.Circle((0, 0), s.r_screen/kpc, color=comp, fill=False)
-    ax1.add_artist(circ)
     ax1.scatter([0], [0], c=comp)
 
     ax1.set_xlim(-100, 100)
@@ -74,8 +60,7 @@ def movie(filename, length=10):
     handles = [Line2D([0], [0], marker='.', lw=0, label="Dark matter",
                       mfc=green3, mec=green3, ms=10),
                Line2D([0], [0], marker='.', lw=0, label="Stars",
-                      mfc=green1, mec=green1, ms=10),
-               Line2D([0], [0], lw=2, label="Screening Radius", color=comp)]
+                      mfc=green1, mec=green1, ms=10)]
     ax1.legend(frameon=False, handles=handles)
 
     a = FuncAnimation(fig, movie_update, frames=N_frames, blit=True,

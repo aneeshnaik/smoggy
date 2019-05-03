@@ -22,6 +22,9 @@ def hernquist_df(theta, M, a):
     v = np.linalg.norm(theta[3:])
     r = np.linalg.norm(theta[:3])
 
+    if r > 20*a:
+        return -1e+20
+
     E = 0.5*v**2 + hernquist_potential(r, M, a)
     x = E/(G*M/a)
 
@@ -38,7 +41,7 @@ def hernquist_df(theta, M, a):
     return lnf
 
 
-def sample_hernquist(N, M, a):
+def sample_particles(N, M, a):
 
     # set up sampler
     nwalkers, ndim = 50, 6

@@ -9,13 +9,8 @@ Functions
 ---------
 print_progress :
     Display a percentage progress bar within a for loop.
-hernquist_acc
-NFW_M_enc
-NFW_acc
 """
 import sys as sys
-import numpy as np
-from .constants import G, pi
 
 
 def print_progress(i, n, interval=1):
@@ -53,30 +48,3 @@ def print_progress(i, n, interval=1):
             sys.stdout.flush()
 
     return
-
-
-def hernquist_acc(pos, centre, M, a):
-    r_vec = pos-centre
-    r = np.linalg.norm(r_vec, axis=-1)[:, None]
-    acc = -G*M*(r_vec/r)/(r+a)**(2)
-    return acc
-
-
-def NFW_M_enc(r, rho_0, r_s):
-    K = 4*pi*rho_0*r_s**3
-    M = K*(np.log(1+r/r_s) - r/(r+r_s))
-    return M
-
-
-def NFW_acc(pos, r, centre, rho_0, r_s):
-    """
-    pos is 3-vector with position at which to calculate acceleration. rho_0 and
-    r_s are NFW parameters. Everything in SI units. Returns acceleration vector
-    in SI units.
-    """
-    K = 4*np.pi*G*rho_0*r_s**3
-    r_vec = pos-centre
-    term1 = np.log(1 + r/r_s)/r**2
-    term2 = 1/(r*(r_s+r))
-    acc = -K*(term1-term2)*(r_vec/r)
-    return acc
