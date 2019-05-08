@@ -16,6 +16,7 @@ from .potentials import miyamoto_density as _discrho
 from .potentials import MW_acceleration as _MWacc
 from .util import print_progress
 from .MG_solver import Grid2D
+from .animate import movie
 
 
 class Simulation:
@@ -116,7 +117,7 @@ class Simulation:
 
         return
 
-    def relax_tracers(self, t_max=1e+17, dt=1e+12):
+    def relax_tracers(self, t_max=1e+16, dt=1e+11):
         """
         Evolve tracers in satellite potential for a while (t_max), in the
         absence of the external MW potential and any fifth forces.
@@ -179,8 +180,8 @@ class Simulation:
 
         return
 
-    def run(self, modgrav=False, fR0=None,
-            t_max=1e+17, dt=1e+12, N_frames=1000):
+    def run(self, modgrav=False, fR0=None, beta=_np.sqrt(1/6), sat_r_screen=0,
+            t_max=1e+17, dt=1e+11, N_frames=1000):
         """
         Run simulation.
 
@@ -217,10 +218,10 @@ class Simulation:
         frame_interval = int(N_iter/N_frames)
 
         # *_tr are the arrays that store the saved particle trajectories
-        self.sat_tr = _np.copy(self.sat_x0)
+        self.sat_tr = _np.copy(self.sat_x)
         if self.tracers:
-            self.DM_tr = _np.copy(self.DM_x0)
-            self.stars_tr = _np.copy(self.stars_x0)
+            self.DM_tr = _np.copy(self.DM_x)
+            self.stars_tr = _np.copy(self.stars_x)
 
         # if adding 5th force, then calculate scalar field map
         if modgrav:
@@ -241,18 +242,20 @@ class Simulation:
 
             # solve scalar field EOMs
             self.grid.iter_solve(niter=1000000, F0=fR0, verbose=True)
+            beta_fac = (2*beta**2)/(1/3)
 
         # calculate initial accelerations, then desynchronise velocities
         # for leapfrog integration
         sat_acc = _MWacc(self.sat_x)
         if modgrav:
-                sat_acc += self.grid.accel(self.sat_x)
+                sat_acc += beta_fac*self.grid.accel(self.sat_x)
         sat_v_half = self.sat_v - 0.5*dt*sat_acc
         if self.tracers:
             DM_acc = _MWacc(self.DM_x)
-            DM_acc += (4/3)*_hacc(self.DM_x-self.sat_x, sat_M, sat_r)
+            DM_acc += _hacc(self.DM_x-self.sat_x, sat_M, sat_r)
             if modgrav:
-                DM_acc += self.grid.accel(self.DM_x)
+                DM_acc += 2*beta**2*_hacc(self.DM_x-self.sat_x, sat_M, sat_r)
+                DM_acc += beta_fac*self.grid.accel(self.DM_x)
             stars_acc = _MWacc(self.stars_x)
             stars_acc += _hacc(self.stars_x-self.sat_x, sat_M, sat_r)
             DM_v_half = self.DM_v - 0.5*dt*DM_acc
@@ -267,12 +270,13 @@ class Simulation:
             # calculate accelerations
             sat_acc = _MWacc(self.sat_x)
             if modgrav:
-                sat_acc += self.grid.accel(self.sat_x)
+                sat_acc += beta_fac*self.grid.accel(self.sat_x)
             if self.tracers:
                 DM_acc = _MWacc(self.DM_x)
-                DM_acc += (4/3)*_hacc(self.DM_x-self.sat_x, sat_M, sat_r)
+                DM_acc += _hacc(self.DM_x-self.sat_x, sat_M, sat_r)
                 if modgrav:
-                    DM_acc += self.grid.accel(self.DM_x)
+                    DM_acc += 2*beta**2*_hacc(self.DM_x-self.sat_x, sat_M, sat_r)
+                    DM_acc += beta_fac*self.grid.accel(self.DM_x)
                 stars_acc = _MWacc(self.stars_x)
                 stars_acc += _hacc(self.stars_x-self.sat_x, sat_M, sat_r)
 
@@ -300,4 +304,4 @@ class Simulation:
         return
 
 
-__all__ = ['Simulation']
+__all__ = ['Simulation', 'movie']
