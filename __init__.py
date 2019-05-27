@@ -117,7 +117,7 @@ class Simulation:
 
         return
 
-    def relax_tracers(self, t_max=1e+16, dt=1e+11):
+    def relax_tracers(self, t_max=1e+16, dt=1e+12):
         """
         Evolve tracers in satellite potential for a while (t_max), in the
         absence of the external MW potential and any fifth forces.
@@ -180,8 +180,9 @@ class Simulation:
 
         return
 
+#    @profile
     def run(self, modgrav=False, fR0=None, beta=_np.sqrt(1/6), sat_r_screen=0,
-            t_max=1e+17, dt=1e+11, N_frames=1000):
+            t_max=1e+17, dt=1e+12, N_frames=1000, mass_loss=False):
         """
         Run simulation.
 
@@ -244,6 +245,17 @@ class Simulation:
             self.grid.iter_solve(niter=1000000, F0=fR0, verbose=True)
             beta_fac = (2*beta**2)/(1/3)
 
+        if mass_loss:
+            assert self.tracers
+
+            # calculate number of particles within 10*sat_r initially
+            DM_r = _np.linalg.norm((self.DM_x - self.sat_x), axis=-1)
+            stars_r = _np.linalg.norm((self.stars_x - self.sat_x), axis=-1)
+            all_r = _np.hstack((DM_r, stars_r))
+            N_bound_init = _np.where(all_r < 10*sat_r)[0].size
+
+            self.sat_M_evo = sat_M
+
         # calculate initial accelerations, then desynchronise velocities
         # for leapfrog integration
         sat_acc = _MWacc(self.sat_x)
@@ -266,6 +278,18 @@ class Simulation:
         for i in range(N_iter):
 
             print_progress(i, N_iter, interval=N_iter//50)
+
+            if mass_loss:
+                assert self.tracers
+
+                # calculate number of particles within 10*sat_r initially
+                DM_r = _np.linalg.norm((self.DM_x - self.sat_x), axis=-1)
+                stars_r = _np.linalg.norm((self.stars_x - self.sat_x), axis=-1)
+                all_r = _np.hstack((DM_r, stars_r))
+                N_bound = _np.where(all_r < 10*sat_r)[0].size
+
+                # reduce mass correspondingly
+                sat_M = (N_bound/N_bound_init)*self.sat_M
 
             # calculate accelerations
             sat_acc = _MWacc(self.sat_x)
@@ -295,6 +319,8 @@ class Simulation:
                 if self.tracers:
                     self.DM_tr = _np.dstack((self.DM_tr, self.DM_x))
                     self.stars_tr = _np.dstack((self.stars_tr, self.stars_x))
+                    if mass_loss:
+                        self.sat_M_evo = _np.append(self.sat_M_evo, sat_M)
 
         # resynchronise velocities
         self.sat_v = sat_v_half - 0.5*dt*sat_acc

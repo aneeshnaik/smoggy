@@ -9,14 +9,17 @@ import numpy as np
 from .constants import G, M_sun, kpc, pi, pc
 sqrt = np.sqrt
 
+
 # default values for Miyamoto-Nagai disc, from LM10
-M_disc = 1e+11*M_sun
+M_disc = 2e+11*M_sun
 a_disc = 6.5*kpc
 b_disc = 0.26*kpc
+
 
 # default values for Hernquist bulge, from LM10
 M_hernquist = 3.4e+10*M_sun
 a_hernquist = 0.7*kpc
+
 
 # default values for NFW halo, requiring v_circ = 220km/s at solar radius
 rho_0_NFW = 0.0025*M_sun/pc**3
