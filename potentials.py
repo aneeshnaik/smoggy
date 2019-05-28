@@ -10,23 +10,12 @@ from .constants import G, M_sun, kpc, pi, pc
 sqrt = np.sqrt
 
 
-# default values for Miyamoto-Nagai disc, from LM10
-M_disc = 2e+11*M_sun
-a_disc = 6.5*kpc
-b_disc = 0.26*kpc
-
-
-# default values for Hernquist bulge, from LM10
-M_hernquist = 3.4e+10*M_sun
-a_hernquist = 0.7*kpc
-
-
 # default values for NFW halo, requiring v_circ = 220km/s at solar radius
 rho_0_NFW = 0.0025*M_sun/pc**3
 r_s_NFW = 27*kpc
 
 
-def miyamoto_potential(pos, M_disc=M_disc, a=a_disc, b=b_disc):
+def miyamoto_potential(pos, M_disc=1e+11*M_sun, a=6.5*kpc, b=0.26*kpc):
     """
     Potential of a Miyamoto-Nagai disc. Default parameter values are MW
     parameters from Law and Majewski 2010.
@@ -60,7 +49,7 @@ def miyamoto_potential(pos, M_disc=M_disc, a=a_disc, b=b_disc):
     return phi
 
 
-def miyamoto_density(pos, M_disc=M_disc, a=a_disc, b=b_disc):
+def miyamoto_density(pos, M_disc=1e+11*M_sun, a=6.5*kpc, b=0.26*kpc):
     """
     Density of a Miyamoto-Nagai disc. Default parameter values are MW
     parameters from Law and Majewski 2010.
@@ -96,7 +85,7 @@ def miyamoto_density(pos, M_disc=M_disc, a=a_disc, b=b_disc):
     return rho
 
 
-def miyamoto_acceleration(pos, M_disc=M_disc, a=a_disc, b=b_disc):
+def miyamoto_acceleration(pos, M_disc=1e+11*M_sun, a=6.5*kpc, b=0.26*kpc):
     """
     Acceleration due to a Miyamoto-Nagai disc. Default parameter values are MW
     parameters from Law and Majewski 2010.
@@ -135,7 +124,7 @@ def miyamoto_acceleration(pos, M_disc=M_disc, a=a_disc, b=b_disc):
     return acc
 
 
-def hernquist_potential(pos, M_hernquist=M_hernquist, a=a_hernquist):
+def hernquist_potential(pos, M_hernquist=3.4e+10*M_sun, a=0.7*kpc):
     """
     Potential of a Hernquist bulge. Default parameter values are MW
     parameters from Law and Majewski 2010.
@@ -160,7 +149,7 @@ def hernquist_potential(pos, M_hernquist=M_hernquist, a=a_hernquist):
     return phi
 
 
-def hernquist_density(pos, M_hernquist=M_hernquist, a=a_hernquist):
+def hernquist_density(pos, M_hernquist=3.4e+10*M_sun, a=0.7*kpc):
     """
     Density of a Hernquist bulge. Default parameter values are MW
     parameters from Law and Majewski 2010.
@@ -187,7 +176,7 @@ def hernquist_density(pos, M_hernquist=M_hernquist, a=a_hernquist):
     return rho
 
 
-def hernquist_acceleration(pos, M_hernquist=M_hernquist, a=a_hernquist):
+def hernquist_acceleration(pos, M_hernquist=3.4e+10*M_sun, a=0.7*kpc):
     """
     Acceleration due to a Hernquist bulge. Default parameter values are MW
     parameters from Law and Majewski 2010.
@@ -303,9 +292,74 @@ def NFW_acceleration(pos, rho_0=rho_0_NFW, r_s=r_s_NFW):
     return acc
 
 
+def triaxlog_potential(pos, v_halo=121900, q1=1.38, qz=1.36, phi=97*pi/180,
+                       r_halo=12*kpc):
+
+    c = np.cos(phi)
+    s = np.sin(phi)
+    C1 = c**2/q1**2 + s**2
+    C2 = s**2/q1**2 + c**2
+    C3 = 2*c*s*(1/q1**2 - 1)
+
+    x = pos[..., 0]
+    y = pos[..., 1]
+    z = pos[..., 2]
+
+    f = C1*x**2 + C2*y**2 + C3*x*y + (z/qz)**2 + r_halo**2
+    pot = v_halo**2*np.log(f)
+
+    return pot
+
+
+def triaxlog_density(pos, v_halo=121900, q1=1.38, qz=1.36, phi=97*pi/180,
+                     r_halo=12*kpc):
+
+    c = np.cos(phi)
+    s = np.sin(phi)
+    C1 = c**2/q1**2 + s**2
+    C2 = s**2/q1**2 + c**2
+    C3 = 2*c*s*(1/q1**2 - 1)
+
+    x = pos[..., 0]
+    y = pos[..., 1]
+    z = pos[..., 2]
+
+    f = C1*x**2 + C2*y**2 + C3*x*y + (z/qz)**2 + r_halo**2
+    dfdx = 2*C1*x + C3*y
+    dfdy = 2*C2*y + C3*x
+    dfdz = 2*z/qz**2
+
+    term3 = (dfdx**2 + dfdy**2 + dfdz**2)/f
+    rho = (v_halo**2/(4*pi*G*f))*(2*C1 + 2*C2 + 2/qz - term3)
+
+    return rho
+
+
+def triaxlog_acceleration(pos, v_halo=121900, q1=1.38, qz=1.36, phi=97*pi/180,
+                          r_halo=12*kpc):
+
+    c = np.cos(phi)
+    s = np.sin(phi)
+    C1 = c**2/q1**2 + s**2
+    C2 = s**2/q1**2 + c**2
+    C3 = 2*c*s*(1/q1**2 - 1)
+
+    x = pos[..., 0]
+    y = pos[..., 1]
+    z = pos[..., 2]
+
+    f = C1*x**2 + C2*y**2 + C3*x*y + (z/qz)**2 + r_halo**2
+    prefac = v_halo**2/f
+    dphidx = prefac*(2*C1*x + C3*y)
+    dphidy = prefac*(2*C2*y + C3*x)
+    dphidz = prefac*(2*z/qz**2)
+
+    return np.stack((-dphidx, -dphidy, -dphidz), axis=-1)
+
+
 def MW_acceleration(pos):
 
-    acc = (NFW_acceleration(pos) +
+    acc = (triaxlog_acceleration(pos) +
            hernquist_acceleration(pos) +
            miyamoto_acceleration(pos))
     return acc
