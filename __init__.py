@@ -170,6 +170,7 @@ class Simulation:
                          tracers, N1, N2):
 
         from .potentials.hernquist import acceleration as hacc
+        from .potentials.hernquist import potential as hphi
         from .potentials.hernquist import mass_enc as hmass
 
         # read satellite parameters
@@ -185,6 +186,12 @@ class Simulation:
             acc = hacc(pos-self.p0_x, self.sat_mass, self.sat_radius)
             return acc
         self.sat_acc = sat_acc
+
+        # create function for potential due to satellite
+        def sat_phi(pos):
+            phi = hphi(pos-self.p0_x, self.sat_mass, self.sat_radius)
+            return phi
+        self.sat_phi = sat_phi
 
         # create function for satellite mass enclosed within given position
         def sat_M_enc(pos):
@@ -418,6 +425,8 @@ class Simulation:
             self.p1_trajectory = _np.hstack((self.p1_x, self.p1_v))[None, :]
             self.p2_trajectory = _np.hstack((self.p2_x, self.p2_v))[None, :]
 
+            self.p1_disrupted = _np.zeros((self.N1), dtype=bool)
+            self.p2_disrupted = _np.zeros((self.N2), dtype=bool)
 # =============================================================================
 #         # if adding 5th force, then calculate scalar field map
 #         if modgrav:
@@ -519,6 +528,22 @@ class Simulation:
                     p2_v = p2_v_half - 0.5*p2_acc*dt
                     snap = _np.hstack((self.p2_x, p2_v))[None, :]
                     self.p2_trajectory = _np.vstack((self.p2_trajectory, snap))
+
+                    dv1 = p1_v - p0_v
+                    dv2 = p2_v - p0_v
+                    K1 = 0.5*(dv1[:, 0]**2 + dv1[:, 1]**2 + dv1[:, 2]**2)
+                    K2 = 0.5*(dv2[:, 0]**2 + dv2[:, 1]**2 + dv2[:, 2]**2)
+                    U1 = self.sat_phi(self.p1_x)
+                    U2 = self.sat_phi(self.p2_x)
+                    E1 = K1 + U1
+                    E2 = K2 + U2
+                    mask1 = _np.zeros((self.N1), dtype=bool)
+                    mask2 = _np.zeros((self.N2), dtype=bool)
+                    mask1[_np.where(E1 > 0)] = True
+                    mask2[_np.where(E2 > 0)] = True
+                    self.p1_disrupted = _np.vstack((self.p1_disrupted, mask1))
+                    self.p2_disrupted = _np.vstack((self.p2_disrupted, mask2))
+
                     #if mass_loss:
                     #    self.sat_M_evo = _np.append(self.sat_M_evo, sat_M)
 
