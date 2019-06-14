@@ -15,7 +15,8 @@ TO-DO LIST
 - identify leading vs. trailing stream
 - add support for no halo etc.
 """
-import numpy as _np
+import numpy as np
+import h5py
 from .constants import pc, kpc, M_sun, pi
 from .sample_hernquist import sample_particles as _sample
 from .util import print_progress
@@ -96,7 +97,10 @@ class Simulation:
                 self.halo_pars = {'rho_0': 0.0025*M_sun/pc**3,
                                   'r_s': 27*kpc}
             else:
-                assert False, "Not supported yet"
+                # checking halo parameters are understood
+                for k in halo_pars.keys():
+                    assert k in ['rho_0', 'r_s']
+                self.halo_pars = halo_pars
         elif halo is None:
             assert False, "Not supported yet"
         else:
@@ -123,8 +127,8 @@ class Simulation:
             r_edges, M_enc = M_enc_grid(N_r, N_th, r_max, **self.disc_pars)
 
             def disc_mass(pos, **kwargs):
-                r = _np.linalg.norm(pos, axis=-1)
-                mass = _np.interp(r, r_edges, M_enc)
+                r = np.linalg.norm(pos, axis=-1)
+                mass = np.interp(r, r_edges, M_enc)
                 return mass
 
         elif disc is None:
@@ -176,10 +180,10 @@ class Simulation:
         # read satellite parameters
         self.sat_radius = sat_radius
         self.sat_mass = sat_mass
-        self.sat_x0 = _np.array(sat_x0, dtype=_np.float64)
-        self.sat_v0 = _np.array(sat_v0, dtype=_np.float64)
-        self.p0_x = _np.copy(self.sat_x0)
-        self.p0_v = _np.copy(self.sat_v0)
+        self.sat_x0 = np.array(sat_x0, dtype=np.float64)
+        self.sat_v0 = np.array(sat_v0, dtype=np.float64)
+        self.p0_x = np.copy(self.sat_x0)
+        self.p0_v = np.copy(self.sat_v0)
 
         # create function for acceleration due to satellite
         def sat_acc(pos):
@@ -217,17 +221,17 @@ class Simulation:
         if modgrav is False:
 
             def mg_acc_tracer(pos):
-                acc = _np.zeros_like(pos)
+                acc = np.zeros_like(pos)
                 return acc
 
             def mg_acc_satellite(pos):
-                acc = _np.zeros_like(pos)
+                acc = np.zeros_like(pos)
                 return acc
 
         else:
 
             # satellite mass within screening radius
-            sat_M_screen = self.sat_M_enc(self.p0_x + _np.array([self.sat_r_screen, 0, 0]))
+            sat_M_screen = self.sat_M_enc(self.p0_x + np.array([self.sat_r_screen, 0, 0]))
 
             # MW mass within screening radius
             MW_M_screen = self.MW_M_enc([self.MW_r_screen, 0, 0])
@@ -239,12 +243,12 @@ class Simulation:
             # fifth force on tracer particle
             def mg_acc_tracer(pos):
 
-                r1 = _np.linalg.norm(pos, axis=-1)
-                r2 = _np.linalg.norm(pos-self.p0_x, axis=-1)
+                r1 = np.linalg.norm(pos, axis=-1)
+                r2 = np.linalg.norm(pos-self.p0_x, axis=-1)
 
                 if pos.ndim == 1:
                     if r1 < MW_r_screen or r2 < sat_r_screen:
-                        return _np.zeros_like(pos)
+                        return np.zeros_like(pos)
 
                     MW_mass_fac = 1 - MW_M_screen/self.MW_M_enc(pos)
                     sat_mass_fac = 1 - sat_M_screen/self.sat_M_enc(pos)
@@ -252,22 +256,22 @@ class Simulation:
                     acc += 2*beta**2*sat_mass_fac*self.sat_acc(pos)
                     return acc
 
-                inds = _np.where((r1 > MW_r_screen) & (r2 > sat_r_screen))
-                acc = _np.zeros_like(pos)
+                inds = np.where((r1 > MW_r_screen) & (r2 > sat_r_screen))
+                acc = np.zeros_like(pos)
 
-                MW_mass_fac = 1 - MW_M_screen/self.MW_M_enc(pos[inds])
-                sat_mass_fac = 1 - sat_M_screen/self.sat_M_enc(pos[inds])
+                MW_fac = 1 - MW_M_screen/self.MW_M_enc(pos[inds])
+                sat_fac = 1 - sat_M_screen/self.sat_M_enc(pos[inds])
 
-                acc[inds] = 2*beta**2*MW_mass_fac[:, None]*self.MW_acc(pos[inds])
-                acc[inds] += 2*beta**2*sat_mass_fac[:, None]*self.sat_acc(pos[inds])
+                acc[inds] = 2*beta**2*MW_fac[:, None]*self.MW_acc(pos[inds])
+                acc[inds] += 2*beta**2*sat_fac[:, None]*self.sat_acc(pos[inds])
 
                 return acc
 
             # fifth force on satellite
             def mg_acc_satellite(pos):
-                r = _np.linalg.norm(pos, axis=-1)
+                r = np.linalg.norm(pos, axis=-1)
                 if r < self.MW_r_screen:
-                    acc = _np.zeros_like(pos)
+                    acc = np.zeros_like(pos)
                 else:
                     MW_mass_fac = 1 - MW_M_screen/self.MW_M_enc(pos)
                     acc = 2*beta**2*sat_Q*MW_mass_fac*self.MW_acc(pos)
@@ -304,14 +308,13 @@ class Simulation:
             raise ValueError("N_tracers should be multiple of 50")
         self.N1 = N1
         self.N2 = N2
-        self.N_tracers = N_tracers
 
         # sample positions and velocities
         x, v = _sample(N=N_tracers, M=self.sat_mass, a=self.sat_radius)
 
         # from sampled tracer particles, randomly choose which are type 1
-        inds = _np.random.choice(_np.arange(N_tracers), N1, replace=False)
-        mask = _np.zeros(N_tracers, dtype=bool)
+        inds = np.random.choice(np.arange(N_tracers), N1, replace=False)
+        mask = np.zeros(N_tracers, dtype=bool)
         mask[inds] = True
         p1_x = x[mask]
         p1_v = v[mask]
@@ -321,16 +324,16 @@ class Simulation:
         # stored sampled positions and velocities
         self.p1_x0 = p1_x + self.sat_x0
         self.p1_v0 = p1_v + self.sat_v0
-        self.p1_x = _np.copy(self.p1_x0)
-        self.p1_v = _np.copy(self.p1_v0)
+        self.p1_x = np.copy(self.p1_x0)
+        self.p1_v = np.copy(self.p1_v0)
         self.p2_x0 = p2_x + self.sat_x0
         self.p2_v0 = p2_v + self.sat_v0
-        self.p2_x = _np.copy(self.p2_x0)
-        self.p2_v = _np.copy(self.p2_v0)
+        self.p2_x = np.copy(self.p2_x0)
+        self.p2_v = np.copy(self.p2_v0)
 
         return
 
-    def _relax_tracers(self, t_max=1e+16, dt=5e+11):
+    def _relax_tracers(self, t_max=1e+16, dt=1e+11):
         """
         Evolve tracers in satellite potential for a while (t_max), in the
         absence of the external MW potential and any fifth forces.
@@ -389,7 +392,7 @@ class Simulation:
 
         return
 
-    def run(self, t_max=1e+17, dt=5e+11, N_frames=1000, mass_loss=False):
+    def run(self, t_max=1e+17, dt=5e+11, N_snapshots=1000, mass_loss=False):
         """
         Run simulation.
 
@@ -409,60 +412,30 @@ class Simulation:
         N_frames : int
         """
 
+        self.times = np.array([0])
         self.t_max = t_max
         self.dt = dt
 
         # N_iter is number of timesteps, need to be integer multiple of
         # N_frames, so that a snapshot can be made at a regular interval
+        self.N_snapshots = N_snapshots
         N_iter = int(t_max/dt)
-        if N_iter % N_frames != 0:
+        if N_iter % N_snapshots != 0:
             raise ValueError("Need N_iter to be multiple of N_frames")
-        frame_interval = int(N_iter/N_frames)
+        snap_interval = int(N_iter/N_snapshots)
 
-        # *_tr are the arrays that store the saved particle trajectories
-        self.p0_trajectory = _np.hstack((self.p0_x, self.p0_v))[None, :]
+        # create arrays in which snapshot pos and vel are stored
+        p0_positions = np.copy(self.p0_x)
+        p0_velocities = np.copy(self.p0_v)
         if self.tracers:
-            self.p1_trajectory = _np.hstack((self.p1_x, self.p1_v))[None, :]
-            self.p2_trajectory = _np.hstack((self.p2_x, self.p2_v))[None, :]
+            p1_positions = np.copy(self.p1_x)[None, :]
+            p2_positions = np.copy(self.p2_x)[None, :]
+            p1_velocities = np.copy(self.p1_v)[None, :]
+            p2_velocities = np.copy(self.p2_v)[None, :]
 
-            self.p1_disrupted = _np.zeros((self.N1), dtype=bool)
-            self.p2_disrupted = _np.zeros((self.N2), dtype=bool)
-# =============================================================================
-#         # if adding 5th force, then calculate scalar field map
-#         if modgrav:
-#             # set up scalar field grid
-#             self.grid = Grid2D(ngrid=200, nth=101, rmax=10*Mpc)
-#             self.grid.set_cosmology(h=0.7, omega_m=0.3)
-#
-#             # add MW density to grid
-#             self.grid.drho = _np.zeros(self.grid.grid_shape)
-#             for i in range(self.grid.ngrid):
-#                 for j in range(self.grid.nth):
-#                     x = self.grid.r[i]*_np.sin(self.grid.th[j])
-#                     y = 0
-#                     z = self.grid.r[i]*_np.cos(self.grid.th[j])
-#                     pos = _np.array([x, y, z])
-#                     rho = _hrho(pos) + _NFWrho(pos) + _discrho(pos)
-#                     self.grid.drho[i, j] = rho
-#
-#             # solve scalar field EOMs
-#             self.grid.iter_solve(niter=1000000, F0=fR0, verbose=True)
-#             beta_fac = (2*beta**2)/(1/3)
-# =============================================================================
-# =============================================================================
-# 
-#         if mass_loss:
-#             assert self.tracers
-# 
-#             # calculate number of particles within 10*sat_r initially
-#             DM_r = _np.linalg.norm((self.DM_x - self.sat_x), axis=-1)
-#             stars_r = _np.linalg.norm((self.stars_x - self.sat_x), axis=-1)
-#             all_r = _np.hstack((DM_r, stars_r))
-#             N_bound_init = _np.where(all_r < 10*sat_r)[0].size
-# 
-#             self.sat_M_evo = sat_M
-# 
-# =============================================================================
+            self.p1_disrupted = np.zeros((self.N1), dtype=bool)
+            self.p2_disrupted = np.zeros((self.N2), dtype=bool)
+
         # calculate initial accelerations, then desynchronise velocities
         # for leapfrog integration
         p0_acc = self.MW_acc(self.p0_x)
@@ -478,24 +451,11 @@ class Simulation:
             p2_v_half = self.p2_v - 0.5*dt*p2_acc
 
         # main loop
+        t = 0
         print("Main loop...")
         for i in range(N_iter):
 
             print_progress(i, N_iter, interval=N_iter//50)
-
-# =============================================================================
-#             if mass_loss:
-#                 assert self.tracers
-#
-#                 # calculate number of particles within 10*sat_r initially
-#                 DM_r = _np.linalg.norm((self.DM_x - self.sat_x), axis=-1)
-#                 stars_r = _np.linalg.norm((self.stars_x - self.sat_x), axis=-1)
-#                 all_r = _np.hstack((DM_r, stars_r))
-#                 N_bound = _np.where(all_r < 10*sat_r)[0].size
-#
-#                 # reduce mass correspondingly
-#                 sat_M = (N_bound/N_bound_init)*self.sat_M
-# =============================================================================
 
             # calculate accelerations
             p0_acc = self.MW_acc(self.p0_x)
@@ -508,6 +468,7 @@ class Simulation:
                 p2_acc += self.sat_acc(self.p2_x)
 
             # timestep
+            t += self.dt
             p0_v_half = p0_v_half + p0_acc*dt
             self.p0_x = self.p0_x + p0_v_half*dt
             if self.tracers:
@@ -517,18 +478,27 @@ class Simulation:
                 self.p2_x = self.p2_x + p2_v_half*dt
 
             # snapshot
-            if (i+1) % frame_interval == 0:
-                p0_v = p0_v_half - 0.5*p0_acc*dt
-                snap = _np.hstack((self.p0_x, p0_v))[None, :]
-                self.p0_trajectory = _np.vstack((self.p0_trajectory, snap))
-                if self.tracers:
-                    p1_v = p1_v_half - 0.5*p1_acc*dt
-                    snap = _np.hstack((self.p1_x, p1_v))[None, :]
-                    self.p1_trajectory = _np.vstack((self.p1_trajectory, snap))
-                    p2_v = p2_v_half - 0.5*p2_acc*dt
-                    snap = _np.hstack((self.p2_x, p2_v))[None, :]
-                    self.p2_trajectory = _np.vstack((self.p2_trajectory, snap))
+            if (i+1) % snap_interval == 0:
 
+                self.times = np.append(self.times, t)
+
+                # resynchronised satellite velocity
+                p0_v = p0_v_half - 0.5*p0_acc*dt
+                p0_positions = np.vstack((p0_positions, self.p0_x))
+                p0_velocities = np.vstack((p0_velocities, p0_v))
+
+                if self.tracers:
+                    # resynchronised tracer velocities
+                    p1_v = p1_v_half - 0.5*p1_acc*dt
+                    p2_v = p2_v_half - 0.5*p2_acc*dt
+
+                    # store positions and velocities
+                    p1_positions = np.vstack((p1_positions, self.p1_x[None, :]))
+                    p1_velocities = np.vstack((p1_velocities, p1_v[None, :]))
+                    p2_positions = np.vstack((p2_positions, self.p2_x[None, :]))
+                    p2_velocities = np.vstack((p2_velocities, p2_v[None, :]))
+
+                    # masks indicating which particles are disrupted
                     dv1 = p1_v - p0_v
                     dv2 = p2_v - p0_v
                     K1 = 0.5*(dv1[:, 0]**2 + dv1[:, 1]**2 + dv1[:, 2]**2)
@@ -537,19 +507,151 @@ class Simulation:
                     U2 = self.sat_phi(self.p2_x)
                     E1 = K1 + U1
                     E2 = K2 + U2
-                    mask1 = _np.zeros((self.N1), dtype=bool)
-                    mask2 = _np.zeros((self.N2), dtype=bool)
-                    mask1[_np.where(E1 > 0)] = True
-                    mask2[_np.where(E2 > 0)] = True
-                    self.p1_disrupted = _np.vstack((self.p1_disrupted, mask1))
-                    self.p2_disrupted = _np.vstack((self.p2_disrupted, mask2))
+                    mask1 = np.zeros((self.N1), dtype=bool)
+                    mask2 = np.zeros((self.N2), dtype=bool)
+                    mask1[np.where(E1 > 0)] = True
+                    mask2[np.where(E2 > 0)] = True
+                    self.p1_disrupted = np.vstack((self.p1_disrupted, mask1))
+                    self.p2_disrupted = np.vstack((self.p2_disrupted, mask2))
 
-                    #if mass_loss:
-                    #    self.sat_M_evo = _np.append(self.sat_M_evo, sat_M)
+        self.p0_positions = p0_positions
+        self.p0_velocities = p0_velocities
+        if self.tracers:
+            self.p1_positions = p1_positions
+            self.p1_velocities = p1_velocities
+            self.p2_positions = p2_positions
+            self.p2_velocities = p2_velocities
 
         # resynchronise velocities
         self.p0_v = p0_v_half - 0.5*dt*p0_acc
         if self.tracers:
             self.p1_v = p1_v_half - 0.5*dt*p1_acc
             self.p2_v = p2_v_half - 0.5*dt*p2_acc
+
+        # store arrays of particle disruption times
+        if self.tracers:
+            self.p1_disruption_time = -np.ones((self.N1), dtype=int)
+            self.p2_disruption_time = -np.ones((self.N2), dtype=int)
+            for i in range(self.N1):
+                mask = self.p1_disrupted[:, i]
+                if mask.any():
+                    self.p1_disruption_time[i] = np.where(mask)[0][0]
+            for i in range(self.N2):
+                mask = self.p2_disrupted[:, i]
+                if mask.any():
+                    self.p2_disruption_time[i] = np.where(mask)[0][0]
+
+        # store arrays of orbital phase
+        zp = np.cross(self.sat_x0, self.sat_v0)
+        zp = zp/np.linalg.norm(zp)
+        xp = self.sat_x0/np.linalg.norm(self.sat_x0)
+        yp = np.cross(zp, xp)
+        p0_xp = np.dot(self.p0_positions, xp)
+        p0_yp = np.dot(self.p0_positions, yp)
+        self.p0_phi = np.arctan2(p0_yp, p0_xp)
+        dphi = np.append(0, np.diff(self.p0_phi))
+        changes = np.where(dphi < -pi)[0]
+        for i in range(changes.size):
+            self.p0_phi[changes[i]:] += 2*pi
+
+        if self.tracers:
+            p1_xp = np.dot(self.p1_positions[..., :3], xp)
+            p1_yp = np.dot(self.p1_positions[..., :3], yp)
+            p2_xp = np.dot(self.p2_positions[..., :3], xp)
+            p2_yp = np.dot(self.p2_positions[..., :3], yp)
+
+            self.p1_phi = np.arctan2(p1_yp, p1_xp)
+            self.p2_phi = np.arctan2(p2_yp, p2_xp)
+            dphi = np.vstack((np.zeros((1, self.N1)), np.diff(self.p1_phi, axis=0)))
+            for j in range(self.N1):
+                changes = np.where(dphi[:, j] < -pi)[0]
+                for i in range(changes.size):
+                    self.p1_phi[changes[i]:, j] += 2*pi
+            dphi = np.vstack((np.zeros((1, self.N2)), np.diff(self.p2_phi, axis=0)))
+            for j in range(self.N2):
+                changes = np.where(dphi[:, j] < -pi)[0]
+                for i in range(changes.size):
+                    self.p2_phi[changes[i]:, j] += 2*pi
+
+            # difference in orbital phase and leading stream mask
+            p1_dphi = self.p1_phi - self.p0_phi[:, None]
+            p2_dphi = self.p2_phi - self.p0_phi[:, None]
+            self.p1_leading = np.zeros_like(p1_dphi, dtype=bool)
+            self.p1_leading[np.where(p1_dphi > 0)] = True
+            self.p2_leading = np.zeros_like(p2_dphi, dtype=bool)
+            self.p2_leading[np.where(p2_dphi > 0)] = True
+
+        return
+
+    def save(self, filename):
+
+        # check correct file ending
+        if filename[-5:] == '.hdf5':
+            f = h5py.File(filename, 'w')
+        else:
+            f = h5py.File(filename+".hdf5", 'w')
+
+        # set up header group
+        header = f.create_group("Header")
+        header.attrs['HaloType'] = self.halo
+        header.attrs['DiscType'] = self.disc
+        header.attrs['BulgeType'] = self.bulge
+        header.attrs['SatelliteMass'] = self.sat_mass
+        header.attrs['SatelliteRadius'] = self.sat_radius
+        header.attrs['ModGrav'] = self.modgrav
+        if self.modgrav:
+            header.attrs['Beta'] = self.beta
+            header.attrs['MW_RScreen'] = self.MW_r_screen
+            header.attrs['Satellite_RScreen'] = self.sat_r_screen
+        header.attrs['Tracers'] = self.tracers
+        if self.tracers:
+            header.attrs['NPart_Type1'] = self.N1
+            header.attrs['NPart_Type2'] = self.N2
+        header.attrs['NSnapshots'] = self.N_snapshots
+        header.attrs['TimeMax'] = self.t_max
+        header.attrs['TimestepSize'] = self.dt
+
+        # add subgroups to header containing parameters for halo, disc, bulge
+        halo = f.create_group("Header/Halo")
+        halo.attrs['HaloType'] = self.halo
+        for k, v in self.halo_pars.items():
+            halo.attrs[k] = v
+        disc = f.create_group("Header/Disc")
+        disc.attrs['DiscType'] = self.disc
+        for k, v in self.disc_pars.items():
+            disc.attrs[k] = v
+        bulge = f.create_group("Header/Bulge")
+        bulge.attrs['BulgeType'] = self.bulge
+        for k, v in self.bulge_pars.items():
+            bulge.attrs[k] = v
+
+        # array of times
+        f.create_dataset('SnapshotTimes', data=self.times)
+
+        # satellite group and data
+        sat_grp = f.create_group("Satellite")
+        sat_grp.create_dataset("Position", data=self.p0_positions)
+        sat_grp.create_dataset("Velocity", data=self.p0_velocities)
+        sat_grp.create_dataset("OrbitalPhase", data=self.p0_phi)
+
+        # groups and data for tracer particles
+        if self.tracers:
+            p1_grp = f.create_group("PartType1")
+            p2_grp = f.create_group("PartType2")
+
+            p1_grp.create_dataset("Position", data=self.p1_positions)
+            p1_grp.create_dataset("Velocity", data=self.p1_velocities)
+            p1_grp.create_dataset("OrbitalPhase", data=self.p1_phi)
+            p1_grp.create_dataset("Disrupted", data=self.p1_disrupted)
+            p1_grp.create_dataset("DisruptionTime", data=self.p1_disruption_time)
+            p1_grp.create_dataset("LeadingStream", data=self.p1_leading)
+
+            p2_grp.create_dataset("Position", data=self.p2_positions)
+            p2_grp.create_dataset("Velocity", data=self.p2_velocities)
+            p2_grp.create_dataset("OrbitalPhase", data=self.p2_phi)
+            p2_grp.create_dataset("Disrupted", data=self.p2_disrupted)
+            p2_grp.create_dataset("DisruptionTime", data=self.p2_disruption_time)
+            p2_grp.create_dataset("LeadingStream", data=self.p2_leading)
+
+        f.close()
         return
