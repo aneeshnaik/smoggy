@@ -12,20 +12,12 @@ import numpy as np
 sqrt = np.sqrt
 
 
-def hernquist_potential(r, M, a):
-    phi = -G*M/(r+a)
-    return phi
-
-
 def hernquist_df(theta, M, a):
 
     v = np.linalg.norm(theta[3:])
     r = np.linalg.norm(theta[:3])
 
-    if r > 20*a:
-        return -1e+20
-
-    E = 0.5*v**2 + hernquist_potential(r, M, a)
+    E = 0.5*v**2 - G*M/(r+a)
     x = E/(G*M/a)
 
     if x >= 0.:
@@ -34,9 +26,9 @@ def hernquist_df(theta, M, a):
         return -1e+20
     else:
         B = np.abs(x)
-        prefac = sqrt(B)/(1-B)**2 * 1/(sqrt(2)*(2*pi)**3*(G*M*a)**(3/2))
+        prefac = np.sqrt(B)/(1-B)**2 * 1/(np.sqrt(2)*(2*pi)**3*(G*M*a)**(3/2))
         term1 = (1-2*B)*(8*B**2-8*B-3)
-        term2 = 3*np.arcsin(sqrt(B))/sqrt(B*(1-B))
+        term2 = 3*np.arcsin(np.sqrt(B))/np.sqrt(B*(1-B))
         lnf = np.log(prefac*(term1+term2))
     return lnf
 
@@ -51,7 +43,7 @@ def sample_particles(N, M, a):
     s = Sampler(nwalkers, ndim, hernquist_df, args=[M, a])
 
     # set up initial walker positions
-    v_sig = 0.5*np.sqrt(G*M/a)/sqrt(3)
+    v_sig = 0.5*np.sqrt(G*M/a)/np.sqrt(3)
     sig = np.array([0.3*a, 0.3*a, 0.3*a, v_sig, v_sig, v_sig])
     p0 = -sig + 2*sig*np.random.rand(nwalkers, ndim)
 
