@@ -8,15 +8,13 @@ object.
 
 TO-DO LIST
 ----------
-
-- adaptive timesteps
+- presets for Sgr, pal-5 etc
 - add support for no halo etc.
-- something to ensure convergence?
 - fix print_progress
 """
 import numpy as np
 import h5py
-from .constants import pc, kpc, M_sun, pi
+from .constants import kpc, M_sun, pi
 from .sample_hernquist import sample_particles as _sample
 from .util import print_progress
 
@@ -47,11 +45,10 @@ class Simulation:
     Examples
     --------
     """
-    def __init__(self, halo='NFW', halo_pars='default',
+    def __init__(self, sat_x0, sat_v0, sat_radius, sat_mass,
+                 halo='NFW', halo_pars='default',
                  disc='miyamoto', disc_pars='default',
                  bulge='hernquist', bulge_pars='default',
-                 sat_x0=[60*kpc, 0, 0], sat_v0=[0, 1e+5, 0],
-                 sat_radius=0.5*kpc, sat_mass=5e+8*M_sun,
                  modgrav=False, beta=None, MW_r_screen=None, sat_r_screen=None,
                  tracers=True, N1=5000, N2=5000):
         """
@@ -116,7 +113,10 @@ class Simulation:
                                   'a': 6.5*kpc,
                                   'b': 0.26*kpc}
             else:
-                assert False, "Not supported yet"
+                # checking disc parameters are understood
+                for k in disc_pars.keys():
+                    assert k in ['M_disc', 'a', 'b']
+                self.disc_pars = disc_pars
 
             # don't have analytic disc mass; set up grid to integrate density
             # and then can interpolate disc mass
@@ -467,18 +467,15 @@ class Simulation:
 
         # calculate initial accelerations, then desynchronise velocities
         # for leapfrog integration
-        p0_x = np.copy(self.p0_x)
-        p0_acc = self.MW_acc(p0_x)
-        p0_acc += self.mg_acc_satellite(p0_x)
+        p0_acc = self.MW_acc(self.p0_x)
+        p0_acc += self.mg_acc_satellite(self.p0_x)
         p0_v_half = self.p0_v - 0.5*dt*p0_acc
         if self.tracers:
-            p1_x = np.copy(self.p1_x)
-            p1_acc = self.MW_acc(p1_x)
-            p1_acc += self.sat_acc(p1_x)
-            p1_acc += self.mg_acc_tracer(p1_x)
-            p2_x = np.copy(self.p2_x)
-            p2_acc = self.MW_acc(p2_x)
-            p2_acc += self.sat_acc(p2_x)
+            p1_acc = self.MW_acc(self.p1_x)
+            p1_acc += self.sat_acc(self.p1_x)
+            p1_acc += self.mg_acc_tracer(self.p1_x)
+            p2_acc = self.MW_acc(self.p2_x)
+            p2_acc += self.sat_acc(self.p2_x)
             p1_v_half = self.p1_v - 0.5*dt*p1_acc
             p2_v_half = self.p2_v - 0.5*dt*p2_acc
 
@@ -490,24 +487,24 @@ class Simulation:
             print_progress(i, N_iter, interval=N_iter//50)
 
             # calculate accelerations
-            p0_acc = self.MW_acc(p0_x)
-            p0_acc += self.mg_acc_satellite(p0_x)
+            p0_acc = self.MW_acc(self.p0_x)
+            p0_acc += self.mg_acc_satellite(self.p0_x)
             if self.tracers:
-                p1_acc = self.MW_acc(p1_x)
-                p1_acc += self.sat_acc(p1_x)
-                p1_acc += self.mg_acc_tracer(p1_x)
-                p2_acc = self.MW_acc(p2_x)
-                p2_acc += self.sat_acc(p2_x)
+                p1_acc = self.MW_acc(self.p1_x)
+                p1_acc += self.sat_acc(self.p1_x)
+                p1_acc += self.mg_acc_tracer(self.p1_x)
+                p2_acc = self.MW_acc(self.p2_x)
+                p2_acc += self.sat_acc(self.p2_x)
 
             # timestep
             t += self.dt
             p0_v_half = p0_v_half + p0_acc*dt
-            p0_x = p0_x + p0_v_half*dt
+            self.p0_x = self.p0_x + p0_v_half*dt
             if self.tracers:
                 p1_v_half = p1_v_half + p1_acc*dt
                 p2_v_half = p2_v_half + p2_acc*dt
-                p1_x = p1_x + p1_v_half*dt
-                p2_x = p2_x + p2_v_half*dt
+                self.p1_x = self.p1_x + p1_v_half*dt
+                self.p2_x = self.p2_x + p2_v_half*dt
 
             # snapshot
             if (i+1) % snap_interval == 0:
@@ -519,8 +516,8 @@ class Simulation:
                 p0_v = p0_v_half - 0.5*p0_acc*dt
 
                 # store satellite position and velocity
-                p0_positions[snapcount] = p0_x
-                p0_velocities[snapcount] = p0_v
+                p0_positions[snapcount] = self.p0_x
+                p0_velocities[snapcount] = self.p0_v
 
                 if self.tracers:
                     # resynchronised tracer velocities
@@ -528,9 +525,9 @@ class Simulation:
                     p2_v = p2_v_half - 0.5*p2_acc*dt
 
                     # store positions and velocities
-                    p1_positions[snapcount] = p1_x
+                    p1_positions[snapcount] = self.p1_x
                     p1_velocities[snapcount] = p1_v
-                    p2_positions[snapcount] = p2_x
+                    p2_positions[snapcount] = self.p2_x
                     p2_velocities[snapcount] = p2_v
 
                     # masks indicating which particles are disrupted
@@ -549,15 +546,12 @@ class Simulation:
                     p1_disrupted[snapcount] = mask1
                     p2_disrupted[snapcount] = mask2
 
-        self.p0_x = p0_x
         self.p0_positions = p0_positions
         self.p0_velocities = p0_velocities
         if self.tracers:
-            self.p1_x = p1_x
             self.p1_positions = p1_positions
             self.p1_velocities = p1_velocities
             self.p1_disrupted = p1_disrupted
-            self.p2_x = p2_x
             self.p2_positions = p2_positions
             self.p2_velocities = p2_velocities
             self.p2_disrupted = p2_disrupted
