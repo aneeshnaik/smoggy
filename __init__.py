@@ -513,7 +513,7 @@ class Simulation:
                 self.times = np.append(self.times, t)
 
                 # resynchronise satellite velocity
-                p0_v = p0_v_half - 0.5*p0_acc*dt
+                self.p0_v = p0_v_half - 0.5*p0_acc*dt
 
                 # store satellite position and velocity
                 p0_positions[snapcount] = self.p0_x
@@ -521,18 +521,18 @@ class Simulation:
 
                 if self.tracers:
                     # resynchronised tracer velocities
-                    p1_v = p1_v_half - 0.5*p1_acc*dt
-                    p2_v = p2_v_half - 0.5*p2_acc*dt
+                    self.p1_v = p1_v_half - 0.5*p1_acc*dt
+                    self.p2_v = p2_v_half - 0.5*p2_acc*dt
 
                     # store positions and velocities
                     p1_positions[snapcount] = self.p1_x
-                    p1_velocities[snapcount] = p1_v
+                    p1_velocities[snapcount] = self.p1_v
                     p2_positions[snapcount] = self.p2_x
-                    p2_velocities[snapcount] = p2_v
+                    p2_velocities[snapcount] = self.p2_v
 
                     # masks indicating which particles are disrupted
-                    dv1 = p1_v - p0_v
-                    dv2 = p2_v - p0_v
+                    dv1 = self.p1_v - self.p0_v
+                    dv2 = self.p2_v - self.p0_v
                     K1 = 0.5*(dv1[:, 0]**2 + dv1[:, 1]**2 + dv1[:, 2]**2)
                     K2 = 0.5*(dv2[:, 0]**2 + dv2[:, 1]**2 + dv2[:, 2]**2)
                     U1 = self.sat_phi(self.p1_x)
