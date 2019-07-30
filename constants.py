@@ -24,6 +24,7 @@ pc = 3.0857e+16  # metres
 kpc = 3.0857e+19  # metres
 Mpc = 3.0857e+22  # metres
 M_sun = 1.9885e+30  # kg
+year = 31536000.0  # seconds
 
 
 # colours for visualisation

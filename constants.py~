@@ -17,7 +17,7 @@ pi = 3.141592653589793
 G = 6.67408e-11  # m^3 kg s^-2
 c = 299792458.0  # m/s
 h_bar = 1.0545718001391127e-34  # kg m^3 s^-2
-M_pl = np.sqrt(hbar*c/(8*pi*G))
+M_pl = np.sqrt(h_bar*c/(8*pi*G))
 
 # units
 pc = 3.0857e+16  # metres
