@@ -33,7 +33,7 @@ def hernquist_df(theta, M, a):
     return lnf
 
 
-def sample_particles(N, M, a):
+def sample(N, M, a):
 
     # set up sampler
     nwalkers, ndim = 50, 6

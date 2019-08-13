@@ -5,7 +5,7 @@ Created:
 Author: A. P. Naik
 Description:
 """
-from gravstream.constants import G, pi
+from smog.constants import G, pi
 import numpy as np
 
 
