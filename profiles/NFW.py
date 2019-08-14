@@ -5,7 +5,7 @@ Created:
 Author: A. P. Naik
 Description:
 """
-from smog.constants import G, pi, pc
+from smoggy.constants import G, pi, pc
 import numpy as np
 delta = 200
 h = 0.7

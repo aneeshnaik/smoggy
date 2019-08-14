@@ -115,7 +115,7 @@ class SatelliteSimulation:
             from .profiles.miyamoto import M_enc_grid
             if disc_pars == 'default':
                 # default parameters from LM10
-                self.disc_pars = {'M_disc': 5e+10*M_sun,
+                self.disc_pars = {'M_disc': 1e+11*M_sun,
                                   'a': 6.5*kpc,
                                   'b': 0.26*kpc}
             else:

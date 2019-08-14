@@ -6,7 +6,7 @@ Author: A. P. Naik
 Description:
 """
 import numpy as np
-from smog.constants import pi, G
+from smoggy.constants import pi, G
 
 
 def density(pos, M, a):

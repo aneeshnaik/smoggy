@@ -5,7 +5,7 @@ Created:
 Author: A. P. Naik
 Description:
 """
-from smog.constants import G, pi
+from smoggy.constants import G, pi
 import numpy as np
 
 
