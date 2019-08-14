@@ -10,7 +10,7 @@ import h5py
 import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib.animation import FuncAnimation
-from gravstream.constants import kpc, year, pi
+from smoggy.constants import kpc, year, pi
 
 
 class SimData:
