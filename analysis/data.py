@@ -96,7 +96,7 @@ class SimData:
 
         return
 
-    def plot_stream_image(self, ax=None, c1='r', c2='g'):
+    def plot_stream_image(self, ax=None, c1='r', c2='g', frame=-1):
 
         assert self.tracers
 
@@ -104,9 +104,9 @@ class SimData:
         if ax is None:
             ax = plt.subplot()
 
-        x0 = self.p0_positions[-1]/kpc
-        x1 = self.p1_positions[-1]/kpc
-        x2 = self.p2_positions[-1]/kpc
+        x0 = self.p0_positions[frame]/kpc
+        x1 = self.p1_positions[frame]/kpc
+        x2 = self.p2_positions[frame]/kpc
 
         # plot particles
         ax.scatter(x1[:, 0], x1[:, 2], s=3, alpha=0.5, rasterized=True, c=c1)
