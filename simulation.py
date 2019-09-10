@@ -581,50 +581,6 @@ class SatelliteSimulation:
                 if mask.any():
                     self.p2_disruption_time[i] = np.where(mask)[0][0]
 
-        # store arrays of orbital phase; orbital plane defined by final
-        # angular momentum vector of satellite
-        zp = np.cross(self.p0_x, self.p0_v)
-        zp = zp/np.linalg.norm(zp)
-        xp = self.p0_x/np.linalg.norm(self.p0_x)
-        yp = np.cross(zp, xp)
-        p0_xp = np.dot(self.p0_positions, xp)
-        p0_yp = np.dot(self.p0_positions, yp)
-        p0_phi = np.arctan2(p0_yp, p0_xp)
-        dp = np.append(0, np.diff(p0_phi))
-        changes = np.where(dp < -pi)[0]
-        for i in range(changes.size):
-            p0_phi[changes[i]:] += 2*pi
-        self.p0_phi = p0_phi
-
-        if self.tracers:
-            p1_xp = np.dot(self.p1_positions[..., :3], xp)
-            p1_yp = np.dot(self.p1_positions[..., :3], yp)
-            p2_xp = np.dot(self.p2_positions[..., :3], xp)
-            p2_yp = np.dot(self.p2_positions[..., :3], yp)
-
-            p1_phi = np.arctan2(p1_yp, p1_xp)
-            p2_phi = np.arctan2(p2_yp, p2_xp)
-            dp = np.vstack((np.zeros((1, self.N1)), np.diff(p1_phi, axis=0)))
-            for j in range(self.N1):
-                changes = np.where(dp[:, j] < -pi)[0]
-                for i in range(changes.size):
-                    p1_phi[changes[i]:, j] += 2*pi
-            dp = np.vstack((np.zeros((1, self.N2)), np.diff(p2_phi, axis=0)))
-            for j in range(self.N2):
-                changes = np.where(dp[:, j] < -pi)[0]
-                for i in range(changes.size):
-                    p2_phi[changes[i]:, j] += 2*pi
-            self.p1_phi = p1_phi
-            self.p2_phi = p2_phi
-
-            # difference in orbital phase and leading stream mask
-            p1_dphi = self.p1_phi - self.p0_phi[:, None]
-            p2_dphi = self.p2_phi - self.p0_phi[:, None]
-            self.p1_leading = np.zeros_like(p1_dphi, dtype=bool)
-            self.p1_leading[np.where(p1_dphi > 0)] = True
-            self.p2_leading = np.zeros_like(p2_dphi, dtype=bool)
-            self.p2_leading[np.where(p2_dphi > 0)] = True
-
         return
 
     def save(self, filename):
@@ -676,7 +632,6 @@ class SatelliteSimulation:
         grp0 = f.create_group("Satellite")
         grp0.create_dataset("Position", data=self.p0_positions)
         grp0.create_dataset("Velocity", data=self.p0_velocities)
-        grp0.create_dataset("OrbitalPhase", data=self.p0_phi)
 
         # groups and data for tracer particles
         if self.tracers:
@@ -685,17 +640,13 @@ class SatelliteSimulation:
 
             grp1.create_dataset("Position", data=self.p1_positions)
             grp1.create_dataset("Velocity", data=self.p1_velocities)
-            grp1.create_dataset("OrbitalPhase", data=self.p1_phi)
             grp1.create_dataset("Disrupted", data=self.p1_disrupted)
             grp1.create_dataset("DisruptionTime", data=self.p1_disruption_time)
-            grp1.create_dataset("LeadingStream", data=self.p1_leading)
 
             grp2.create_dataset("Position", data=self.p2_positions)
             grp2.create_dataset("Velocity", data=self.p2_velocities)
-            grp2.create_dataset("OrbitalPhase", data=self.p2_phi)
             grp2.create_dataset("Disrupted", data=self.p2_disrupted)
             grp2.create_dataset("DisruptionTime", data=self.p2_disruption_time)
-            grp2.create_dataset("LeadingStream", data=self.p2_leading)
 
         f.close()
         return
