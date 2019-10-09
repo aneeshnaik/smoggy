@@ -12,7 +12,7 @@ from scipy.interpolate import RectBivariateSpline as RBS
 
 
 class Grid2D:
-    def __init__(self, ngrid=175, nth=101, rmin=0.05*kpc, rmax=5*Mpc):
+    def __init__(self, ngrid=175, nth=101, rmin=0.05*kpc, rmax=10*Mpc):
 
         self.ngrid = ngrid
         self.rmax = rmax

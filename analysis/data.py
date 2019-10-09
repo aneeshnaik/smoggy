@@ -60,37 +60,29 @@ class SimData:
         # satellite data
         self.p0_positions = np.array(f['Satellite/Position'])
         self.p0_velocities = np.array(f['Satellite/Velocity'])
-        self.p0_phi = np.array(f['Satellite/OrbitalPhase'])
 
         # tracer particle data
         if self.tracers:
             self.p1_positions = np.array(f['PartType1/Position'])
             self.p1_velocities = np.array(f['PartType1/Velocity'])
-            self.p1_phi = np.array(f['PartType1/OrbitalPhase'])
             self.p1_disrupted = np.array(f['PartType1/Disrupted'])
             self.p1_disruption_time = np.array(f['PartType1/DisruptionTime'])
-            self.p1_leading = np.array(f['PartType1/LeadingStream'])
 
             self.p2_positions = np.array(f['PartType2/Position'])
             self.p2_velocities = np.array(f['PartType2/Velocity'])
-            self.p2_phi = np.array(f['PartType2/OrbitalPhase'])
             self.p2_disrupted = np.array(f['PartType2/Disrupted'])
             self.p2_disruption_time = np.array(f['PartType2/DisruptionTime'])
-            self.p2_leading = np.array(f['PartType2/LeadingStream'])
+
         else:
             self.p1_positions = None
             self.p1_velocities = None
-            self.p1_phi = None
             self.p1_disrupted = None
             self.p1_disruption_time = None
-            self.p1_leading = None
 
             self.p2_positions = None
             self.p2_velocities = None
-            self.p2_phi = None
             self.p2_disrupted = None
             self.p2_disruption_time = None
-            self.p2_leading = None
 
         f.close()
 
@@ -114,17 +106,48 @@ class SimData:
 
         # plot satellite and MW centres
         ax.scatter(x0[0], x0[2], marker='x', c='k')
-        ax.scatter([0], [0], marker='x', c='k')
+        ax.scatter([0], [0], marker='o', c='k')
 
         return
+
+    def calculate_longitudes(self):
+
+        # zp is z vector at all times, shape 501 x 3
+        zp = np.cross(self.p0_positions, self.p0_velocities)
+        zp = zp/np.linalg.norm(zp, axis=-1)[:, None]
+
+        xp = self.p0_positions
+        xp = xp/np.linalg.norm(xp, axis=-1)[:, None]
+        yp = np.cross(zp, xp)
+
+        p1_xp = np.sum(self.p1_positions*xp[:, None, :], axis=-1)
+        p1_yp = np.sum(self.p1_positions*yp[:, None, :], axis=-1)
+        p2_xp = np.sum(self.p2_positions*xp[:, None, :], axis=-1)
+        p2_yp = np.sum(self.p2_positions*yp[:, None, :], axis=-1)
+
+        p1_phi = np.arctan2(p1_yp, p1_xp)
+        p2_phi = np.arctan2(p2_yp, p2_xp)
+
+        dp = np.vstack((np.zeros((1, self.N1)), np.diff(p1_phi, axis=0)))
+        for j in range(self.N1):
+            changes = np.where(np.abs(dp[:, j]) > 1.1*pi)[0]
+            for i in range(changes.size):
+                p1_phi[changes[i]:, j] -= 2*pi*np.sign(dp[changes[i], j])
+
+        dp = np.vstack((np.zeros((1, self.N2)), np.diff(p2_phi, axis=0)))
+        for j in range(self.N2):
+            changes = np.where(np.abs(dp[:, j]) > 1.1*pi)[0]
+            for i in range(changes.size):
+                p2_phi[changes[i]:, j] -= 2*pi*np.sign(dp[changes[i], j])
+
+        return p1_phi, p2_phi
 
     def plot_trajectories(self, ax1=None, ax2=None, c1='r', c2='g'):
 
         assert self.tracers
         from matplotlib.collections import LineCollection as LineColl
 
-        long_1 = self.p1_phi - self.p0_phi[:, None]
-        long_2 = self.p2_phi - self.p0_phi[:, None]
+        long_1, long_2 = self.calculate_longitudes()
 
         x = np.linspace(-1e+17/(1e+9*year), 0, self.N_snapshots+1)
         y1 = long_1.T * 180/pi

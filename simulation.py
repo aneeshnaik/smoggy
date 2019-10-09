@@ -52,7 +52,7 @@ class SatelliteSimulation:
                  disc='miyamoto', disc_pars='default',
                  bulge='hernquist', bulge_pars='default',
                  modgrav=False, beta=None, MW_r_screen=None, sat_r_screen=None,
-                 tracers=True, N1=5000, N2=5000):
+                 tracers=False, N1=None, N2=None):
         """
         Initialise an instance of class. See class docstring for more info.
         """
@@ -215,7 +215,12 @@ class SatelliteSimulation:
         # add tracers if required
         self.tracers = tracers
         if self.tracers:
+            self.N1 = N1
+            self.N2 = N2
             self._add_tracers(N1=N1, N2=N2)
+        else:
+            self.N1 = None
+            self.N2 = None
 
         return
 
@@ -226,7 +231,7 @@ class SatelliteSimulation:
         self.MW_r_screen = MW_r_screen
         self.sat_r_screen = sat_r_screen
 
-        if modgrav is False:
+        if not modgrav:
 
             def mg_acc_tracer(pos):
                 acc = np.zeros_like(pos)
@@ -306,8 +311,7 @@ class SatelliteSimulation:
         if N_tracers % 50 != 0:
             raise ValueError("Total number of tracer particles should be"
                              "multiple of 50 for sampling to work")
-        self.N1 = N1
-        self.N2 = N2
+
         M = self.sat_mass
         a = self.sat_radius
 
@@ -598,6 +602,8 @@ class SatelliteSimulation:
         header.attrs['BulgeType'] = self.bulge
         header.attrs['SatelliteMass'] = self.sat_mass
         header.attrs['SatelliteRadius'] = self.sat_radius
+        header.attrs['SatelliteX0'] = self.sat_x0
+        header.attrs['SatelliteV0'] = self.sat_v0
         header.attrs['ModGrav'] = self.modgrav
         if self.modgrav:
             header.attrs['Beta'] = self.beta
