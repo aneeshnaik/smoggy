@@ -149,7 +149,7 @@ class SimData:
 
         long_1, long_2 = self.calculate_longitudes()
 
-        x = np.linspace(-1e+17/(1e+9*year), 0, self.N_snapshots+1)
+        x = np.linspace(-self.times[-1]/(1e+9*year), 0, self.N_snapshots+1)
         y1 = long_1.T * 180/pi
         y2 = long_2.T * 180/pi
 

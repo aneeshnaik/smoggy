@@ -39,7 +39,7 @@ def sample(N, M, a):
     nwalkers, ndim = 50, 6
     n_burnin = 1000
     assert N % nwalkers == 0
-    n_iter = int(N/nwalkers)
+    n_iter = N
     s = Sampler(nwalkers, ndim, hernquist_df, args=[M, a])
 
     # set up initial walker positions
@@ -56,7 +56,7 @@ def sample(N, M, a):
     p0 = s.chain[:, -1, :]
     s.reset()
     print("Taking final sample...")
-    for i, result in enumerate(s.sample(p0, iterations=n_iter)):
+    for i, result in enumerate(s.sample(p0, iterations=n_iter, thin=50)):
             print_progress(i, n_iter)
     pos = s.flatchain[:, :3]
     vel = s.flatchain[:, 3:]
