@@ -11,6 +11,9 @@ import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib.animation import FuncAnimation
 from smoggy.constants import kpc, year, pi
+plt.rcParams['text.usetex'] = True
+plt.rcParams['font.family'] = 'serif'
+plt.rcParams['font.size'] = 14
 
 
 class SimData:
@@ -51,8 +54,14 @@ class SimData:
 
         # add subgroups to header containing parameters for halo, disc, bulge
         self.halo_pars = dict(f['Header/Halo'].attrs)
-        self.disc_pars = dict(f['Header/Disc'].attrs)
-        self.bulge_pars = dict(f['Header/Bulge'].attrs)
+        if self.disc != 'None':
+            self.disc_pars = dict(f['Header/Disc'].attrs)
+        else:
+            self.disc_pars = {}
+        if self.bulge != 'None':
+            self.bulge_pars = dict(f['Header/Bulge'].attrs)
+        else:
+            self.bulge_pars = {}
 
         # array of times
         self.times = np.array(f['SnapshotTimes'])
@@ -181,59 +190,99 @@ class SimData:
 
         return
 
-    def movie(self, fig=None, length=10, orientation='y'):
+    def movie(self, length=20, orientation='y',
+              c1='#31A354', c2='#A33159'):
+        """
+        Make movie of smoggy simulation.
 
-        x0 = self.p0_positions/kpc
-        x1 = self.p1_positions/kpc
-        x2 = self.p2_positions/kpc
+        Parameters
+        ----------
+        d : smoggy.analysis.SimData instance
+            Simulation data
+        coords : {'galactocentric', 'lagrangian', 'both'}
+            Type of movie. Default is galactocentric.
+        orientation : {'y', 'z', 'x'}
+            Orientation of movie
+        """
 
+
+        # calculate delay between frames in millisecs
         interval = length*1000/self.N_snapshots
 
+        # get relevant coordinates in kpc
         if orientation == 'z':
             inds = (0, 1)
+            axlabels = ['$x\ [\mathrm{kpc}]$', '$y\ [\mathrm{kpc}]$']
         elif orientation == 'y':
             inds = (0, 2)
+            axlabels = ['$x\ [\mathrm{kpc}]$', '$z\ [\mathrm{kpc}]$']
         else:
-            assert False
+            inds = (1, 2)
+            axlabels = ['$y\ [\mathrm{kpc}]$', '$z\ [\mathrm{kpc}]$']
+        times = self.times/(1e+9*year)
+        x0 = self.p0_positions[:, inds]/kpc
+        x1 = self.p1_positions[:, :, inds]/kpc
+        x2 = self.p2_positions[:, :, inds]/kpc
+        dx1 = (x1 - x0[:, None, :])
+        dx2 = (x2 - x0[:, None, :])
 
-        # create axis if one isn't provided
-        if fig is None:
-            fig = plt.figure()
-            ax = fig.subplots()
-        else:
-            ax = fig.axes[0]
+        fig = plt.figure(figsize=(8, 8))
+        ax1 = fig.add_axes([0.1, 0.1, 0.8, 0.8])
+        ax2 = fig.add_axes([0.7, 0.7, 0.18, 0.18])
 
-        # show initial positions in background
-        ax.plot(x0[:, inds[0]], x0[:, inds[1]], ls='dashed', c='grey')
-        ax.scatter(x1[0, :, inds[0]], x1[0, :, inds[1]], s=1, c='grey')
-        ax.scatter(x2[0, :, inds[0]], x2[0, :, inds[1]], s=1, c='grey')
+        ax1lim = np.max(np.linalg.norm(x0, axis=-1))*1.5
+        ax2lim = 12*self.sat_radius/kpc
+        ax1.set_xlim(-ax1lim, ax1lim)
+        ax1.set_ylim(-ax1lim, ax1lim)
+        ax2.set_xlim(-ax2lim, ax2lim)
+        ax2.set_ylim(-ax2lim, ax2lim)
+        ax1.set_xlabel(axlabels[0])
+        ax1.set_ylabel(axlabels[1])
 
         # set up initial artists for animation
-        l, = ax.plot([], [], c='grey')
-        artists = [l]
-        s1 = ax.scatter(x1[0, :, inds[0]], x1[0, :, inds[1]], s=1, c='green')
-        s2 = ax.scatter(x2[0, :, inds[0]], x2[0, :, inds[1]], s=1, c='blue')
-        artists.append(s1)
-        artists.append(s2)
+        l, = ax1.plot([], [], c='lightgrey')
+        s1 = ax1.scatter(x1[0, :, 0], x1[0, :, 1], s=1, c=c1, alpha=0.6, label='Dark Matter', zorder=1)
+        s2 = ax1.scatter(x2[0, :, 0], x2[0, :, 1], s=1, c=c2, alpha=0.6, label='Stars', zorder=1)
+        t = ax1.text(0.5, 0.975, "{0:.2f} Gyr".format(times[0]), transform=ax1.transAxes, ha='center', va='top')
 
         # central MW blob
-        ax.scatter([0], [0], c='k')
+        ax1.scatter([0], [0], c='k')
 
-        fargs = (x0, x1, x2, artists, inds)
+        if self.MW_r_screen is not None:
+            circ = plt.Circle((0, 0), radius=self.MW_r_screen/kpc, fill=False, ls=':', ec='k')
+            ax1.add_artist(circ)
+
+        ax1.legend(markerscale=10, frameon=False, loc='upper left')
+
+        s3 = ax2.scatter(dx1[0, :, 0], dx1[0, :, 1], s=1, c=c1, alpha=0.6)
+        s4 = ax2.scatter(dx2[0, :, 0], dx2[0, :, 1], s=1, c=c2, alpha=0.6)
+
+        artists = [l, s1, s2, s3, s4, t]
+
+        fargs = (x0, x1, x2, dx1, dx2, times, artists)
         a = FuncAnimation(fig, frame_update, frames=self.N_snapshots+1,
-                          blit=True, fargs=fargs, interval=interval)
+                          blit=False, fargs=fargs, interval=interval)
 
         return a
 
 
-def frame_update(num, x0, x1, x2, artists, inds):
+def frame_update(num, x0, x1, x2, dx1, dx2, times, artists):
 
     line = artists[0]
-    line.set_data(x0[:num, inds[0]], x0[:num, inds[1]])
+    line.set_data(x0[:num, 0], x0[:num, 1])
 
     s1 = artists[1]
     s2 = artists[2]
-    s1.set_offsets(x1[num, :, inds].T)
-    s2.set_offsets(x2[num, :, inds].T)
+    s1.set_offsets(x1[num, :])
+    s2.set_offsets(x2[num, :])
+    s1.set_zorder(1)
+    s2.set_zorder(1)
+    s3 = artists[3]
+    s4 = artists[4]
+    s3.set_offsets(dx1[num, :])
+    s4.set_offsets(dx2[num, :])
+
+    t = artists[5]
+    t.set_text("{0:.2f} Gyr".format(times[num]))
 
     return artists

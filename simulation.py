@@ -52,7 +52,7 @@ class SatelliteSimulation:
                  disc='miyamoto', disc_pars='default',
                  bulge='hernquist', bulge_pars='default',
                  modgrav=False, beta=None, MW_r_screen=None, sat_r_screen=None,
-                 tracers=False, N1=None, N2=None):
+                 tracers=False, N1=None, N2=None, tracer_relax_time=1e+17):
         """
         Initialise an instance of class. See class docstring for more info.
         """
@@ -63,7 +63,8 @@ class SatelliteSimulation:
 
         self._setup_satellite(sat_x0=sat_x0, sat_v0=sat_v0,
                               sat_radius=sat_radius, sat_mass=sat_mass,
-                              tracers=tracers, N1=N1, N2=N2)
+                              tracers=tracers, N1=N1, N2=N2,
+                              tracer_relax_time=tracer_relax_time)
 
         self._setup_modgrav(modgrav=modgrav, beta=beta,
                             MW_r_screen=MW_r_screen, sat_r_screen=sat_r_screen)
@@ -103,8 +104,19 @@ class SatelliteSimulation:
                 for k in halo_pars.keys():
                     assert k in ['M_vir', 'c_vir']
                 self.halo_pars = halo_pars
+        elif halo == 'point':
+            self.halo = halo
+            from .profiles.point import acceleration as halo_acc
+            from .profiles.point import mass_enc as halo_mass
+            if halo_pars == 'default':
+                self.halo_pars = {'M': 1e+12*M_sun}
+            else:
+                # checking halo parameters are understood
+                for k in halo_pars.keys():
+                    assert k in ['M']
+                self.halo_pars = halo_pars
         elif halo is None:
-            assert False, "Not supported yet"
+            assert False, "Need at least a halo for the Milky Way!"
         else:
             raise ValueError("Unrecognised halo type")
 
@@ -137,7 +149,19 @@ class SatelliteSimulation:
                 return mass
 
         elif disc is None:
-            assert False, "Not supported yet"
+            self.disc = disc
+            self.disc_pars = {}
+
+            def disc_acc(pos, **kwargs):
+                return np.zeros_like(pos)
+
+            def disc_mass(pos, **kwargs):
+                if pos.ndim == 1:
+                    M = 0
+                else:
+                    M = np.zeros(pos.shape[0])
+                return M
+
         else:
             raise ValueError("Unrecognised disc type")
 
@@ -153,7 +177,18 @@ class SatelliteSimulation:
             else:
                 assert False, "Not supported yet"
         elif bulge is None:
-            assert False, "Not supported yet"
+            self.bulge = bulge
+            self.bulge_pars = {}
+
+            def bulge_acc(pos, **kwargs):
+                return np.zeros_like(pos)
+
+            def bulge_mass(pos, **kwargs):
+                if pos.ndim == 1:
+                    M = 0
+                else:
+                    M = np.zeros(pos.shape[0])
+                return M
         else:
             raise ValueError("Unrecognised bulge type")
 
@@ -176,7 +211,7 @@ class SatelliteSimulation:
         return
 
     def _setup_satellite(self, sat_x0, sat_v0, sat_radius, sat_mass,
-                         tracers, N1, N2):
+                         tracers, N1, N2, tracer_relax_time):
         """
         Set up satellite, i.e. create class methods for acceleration,
         potential, and enclosed mass of satellite. Also, if tracer particles
@@ -217,7 +252,7 @@ class SatelliteSimulation:
         if self.tracers:
             self.N1 = N1
             self.N2 = N2
-            self._add_tracers(N1=N1, N2=N2)
+            self._add_tracers(N1=N1, N2=N2, tracer_relax_time=tracer_relax_time)
         else:
             self.N1 = None
             self.N2 = None
@@ -244,7 +279,7 @@ class SatelliteSimulation:
         else:
 
             # MW mass within screening radius
-            MW_M_screen = self.MW_M_enc([self.MW_r_screen, 0, 0])
+            MW_M_screen = self.MW_M_enc(np.array([self.MW_r_screen, 0, 0]))
 
             screen_pos = self.sat_x0 + np.array([self.sat_r_screen, 0, 0])
             sat_M_screen = self.sat_M_enc(screen_pos)
@@ -302,7 +337,7 @@ class SatelliteSimulation:
         self.mg_acc_satellite = mg_acc_satellite
         return
 
-    def _add_tracers(self, N1, N2):
+    def _add_tracers(self, N1, N2, tracer_relax_time):
 
         from .tracers import sample
 
@@ -323,7 +358,7 @@ class SatelliteSimulation:
         x0 += self.sat_x0
 
         # integrate these tracers under satellite potential for a Gyr or so
-        pos, vel = self._relax_tracers(x0, v0, t_max=1e+17)
+        pos, vel = self._relax_tracers(x0, v0, t_max=tracer_relax_time)
 
         # downsample N of these, excluding those which are ever more than 10a
         # from satellite centre
@@ -368,7 +403,7 @@ class SatelliteSimulation:
 
         dt = t_max / N_snapshots
         res = 1
-        tol = 0.02
+        tol = 0.04
         while res > tol:
 
             x = np.copy(x0)
@@ -598,8 +633,6 @@ class SatelliteSimulation:
         # set up header group
         header = f.create_group("Header")
         header.attrs['HaloType'] = self.halo
-        header.attrs['DiscType'] = self.disc
-        header.attrs['BulgeType'] = self.bulge
         header.attrs['SatelliteMass'] = self.sat_mass
         header.attrs['SatelliteRadius'] = self.sat_radius
         header.attrs['SatelliteX0'] = self.sat_x0
@@ -622,14 +655,24 @@ class SatelliteSimulation:
         halo.attrs['HaloType'] = self.halo
         for k, v in self.halo_pars.items():
             halo.attrs[k] = v
-        disc = f.create_group("Header/Disc")
-        disc.attrs['DiscType'] = self.disc
-        for k, v in self.disc_pars.items():
-            disc.attrs[k] = v
-        bulge = f.create_group("Header/Bulge")
-        bulge.attrs['BulgeType'] = self.bulge
-        for k, v in self.bulge_pars.items():
-            bulge.attrs[k] = v
+
+        if self.disc is not None:
+            header.attrs['DiscType'] = self.disc
+            disc = f.create_group("Header/Disc")
+            disc.attrs['DiscType'] = self.disc
+            for k, v in self.disc_pars.items():
+                disc.attrs[k] = v
+        else:
+            header.attrs['DiscType'] = 'None'
+
+        if self.bulge is not None:
+            header.attrs['BulgeType'] = self.bulge
+            bulge = f.create_group("Header/Bulge")
+            bulge.attrs['BulgeType'] = self.bulge
+            for k, v in self.bulge_pars.items():
+                bulge.attrs[k] = v
+        else:
+            header.attrs['BulgeType'] = 'None'
 
         # array of times
         f.create_dataset('SnapshotTimes', data=self.times)
