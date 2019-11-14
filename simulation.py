@@ -403,7 +403,7 @@ class SatelliteSimulation:
 
         dt = t_max / N_snapshots
         res = 1
-        tol = 0.04
+        tol = 0.02
         while res > tol:
 
             x = np.copy(x0)
