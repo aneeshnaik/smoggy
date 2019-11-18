@@ -52,7 +52,8 @@ class SatelliteSimulation:
                  disc='miyamoto', disc_pars='default',
                  bulge='hernquist', bulge_pars='default',
                  modgrav=False, beta=None, MW_r_screen=None, sat_r_screen=None,
-                 tracers=False, N1=None, N2=None, tracer_relax_time=1e+17):
+                 tracers=False, N1=None, N2=None, tracer_relax_time=1e+17,
+                 tracer_df='isotropic'):
         """
         Initialise an instance of class. See class docstring for more info.
         """
@@ -64,7 +65,8 @@ class SatelliteSimulation:
         self._setup_satellite(sat_x0=sat_x0, sat_v0=sat_v0,
                               sat_radius=sat_radius, sat_mass=sat_mass,
                               tracers=tracers, N1=N1, N2=N2,
-                              tracer_relax_time=tracer_relax_time)
+                              tracer_relax_time=tracer_relax_time,
+                              tracer_df=tracer_df)
 
         self._setup_modgrav(modgrav=modgrav, beta=beta,
                             MW_r_screen=MW_r_screen, sat_r_screen=sat_r_screen)
@@ -211,7 +213,8 @@ class SatelliteSimulation:
         return
 
     def _setup_satellite(self, sat_x0, sat_v0, sat_radius, sat_mass,
-                         tracers, N1, N2, tracer_relax_time):
+                         tracers, N1, N2, tracer_relax_time,
+                         tracer_df):
         """
         Set up satellite, i.e. create class methods for acceleration,
         potential, and enclosed mass of satellite. Also, if tracer particles
@@ -252,7 +255,9 @@ class SatelliteSimulation:
         if self.tracers:
             self.N1 = N1
             self.N2 = N2
-            self._add_tracers(N1=N1, N2=N2, tracer_relax_time=tracer_relax_time)
+            self._add_tracers(N1=N1, N2=N2,
+                              tracer_relax_time=tracer_relax_time,
+                              tracer_df=tracer_df)
         else:
             self.N1 = None
             self.N2 = None
@@ -337,7 +342,7 @@ class SatelliteSimulation:
         self.mg_acc_satellite = mg_acc_satellite
         return
 
-    def _add_tracers(self, N1, N2, tracer_relax_time):
+    def _add_tracers(self, N1, N2, tracer_relax_time, tracer_df):
 
         from .tracers import sample
 
@@ -352,7 +357,7 @@ class SatelliteSimulation:
 
         # sample 2N initial positions and velocities form B+T hernquist DF.
         # N.B. 121M/100 is mass of full (untruncated) Hernquist distribution
-        x0, v0 = sample(2*N_tracers, M=121*M/100, a=a)
+        x0, v0 = sample(2*N_tracers, M=121*M/100, a=a, df=tracer_df)
 
         # displace to satellite position (add bulk velocity later)
         x0 += self.sat_x0

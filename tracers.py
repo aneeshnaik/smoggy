@@ -12,7 +12,7 @@ import numpy as np
 sqrt = np.sqrt
 
 
-def hernquist_df(theta, M, a):
+def hernquist_df_iso(theta, M, a):
 
     v = np.linalg.norm(theta[3:])
     r = np.linalg.norm(theta[:3])
@@ -33,14 +33,39 @@ def hernquist_df(theta, M, a):
     return lnf
 
 
-def sample(N, M, a):
+def hernquist_df_aniso(theta, M, a):
+    v = np.linalg.norm(theta[3:])
+    r = np.linalg.norm(theta[:3])
+
+    E = 0.5*v**2 - G*M/(r+a)
+    x = E/(G*M/a)
+    L = np.linalg.norm(np.cross(theta[:3], theta[3:]))
+
+    if x >= 0.:
+        return -1e+20
+    elif x <= -1.:
+        return -1e+20
+    else:
+        prefac = (3*a) / (4*pi**3)
+        lnf = np.log(prefac * E**2 / (G**3*M**3*L))
+    return lnf
+
+
+def sample(N, M, a, df='isotropic'):
+
+    if df == 'isotropic':
+        df_function = hernquist_df_iso
+    elif df == 'anisotropic':
+        df_function = hernquist_df_aniso
+    else:
+        raise KeyError("Distribution function not recognised")
 
     # set up sampler
     nwalkers, ndim = 50, 6
     n_burnin = 1000
     assert N % nwalkers == 0
     n_iter = N
-    s = Sampler(nwalkers, ndim, hernquist_df, args=[M, a])
+    s = Sampler(nwalkers, ndim, df_function, args=[M, a])
 
     # set up initial walker positions
     v_sig = 0.5*np.sqrt(G*M/a)/np.sqrt(3)
