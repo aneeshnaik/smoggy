@@ -5,7 +5,7 @@ Created:
 Author: A. P. Naik
 Description:
 """
-from smoggy.constants import G, pi, pc
+from smoggy.constants import G, pi, pc, kpc
 import numpy as np
 delta = 200
 h = 0.7
@@ -60,7 +60,7 @@ def potential(pos, M_vir, c_vir):
     return phi
 
 
-def density(pos, M_vir, c_vir):
+def density(pos, M_vir, c_vir, softening=0.0001*kpc):
     """
     Density of an NFW halo. Default scale radius is from Gerhard+Wegg, 2018.
     Density normalisation is such that circular velocity is roughly 220km/s at
@@ -85,7 +85,8 @@ def density(pos, M_vir, c_vir):
 
     r = np.linalg.norm(pos, axis=-1)
     x = r/r_s
-    rho = rho_0/(x*(1+x)**2)
+    epsilon = softening/r_s
+    rho = rho_0/((x+epsilon)*(1+x)**2)
     return rho
 
 

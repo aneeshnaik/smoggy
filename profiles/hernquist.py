@@ -5,7 +5,7 @@ Created:
 Author: A. P. Naik
 Description:
 """
-from smoggy.constants import G, pi
+from smoggy.constants import G, pi, kpc
 import numpy as np
 
 
@@ -34,7 +34,7 @@ def potential(pos, M_hernquist, a):
     return phi
 
 
-def density(pos, M_hernquist, a):
+def density(pos, M_hernquist, a, softening=0.0001*kpc):
     """
     Density of a Hernquist bulge. Default parameter values are MW
     parameters from Law and Majewski 2010.
@@ -56,7 +56,8 @@ def density(pos, M_hernquist, a):
     """
     r = np.linalg.norm(pos, axis=-1)
     x = r/a
-    denom = 2*pi*a**3*x*(1+x)**3
+    epsilon = softening/a
+    denom = 2*pi*a**3*(x+epsilon)*(1+x)**3
     rho = M_hernquist/denom
     return rho
 
