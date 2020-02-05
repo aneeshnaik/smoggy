@@ -1,9 +1,10 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-Created:
+Created: April 2019
 Author: A. P. Naik
-Description:
+Description: 'Simulation' class is main object of smoggy package. Sets up and
+runs simulations.
 """
 import numpy as np
 import h5py
@@ -11,7 +12,7 @@ from .constants import kpc, M_sun, pi
 from .util import print_progress
 
 
-class SatelliteSimulation:
+class Simulation:
     """
     Object that sets up and runs simulations of satellite and tracer particles
     in Milky Way potential, with optional fifth force.

@@ -3,9 +3,9 @@
 """
 Created: April 2019
 Author: A. P. Naik
-Description: __init__ file of smog package. Key object is 'SatelliteSimulation'
-object.
+Description: __init__ file of smoggy package. Key object is 'Simulation'
+object, which sets up and runs simulations.
 """
-from .simulation import SatelliteSimulation
+from .simulation import Simulation
 
-__all__ = ['SatelliteSimulation']
+__all__ = ['Simulation']
