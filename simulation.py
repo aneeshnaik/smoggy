@@ -16,37 +16,95 @@ class Simulation:
     """
     Object that sets up and runs simulations of satellite and tracer particles
     in Milky Way potential, with optional fifth force.
+    
+    For usage examples, see smoggy README and template runscripts.
 
     Parameters
     ----------
-    sat_x0 : 1D array-like, shape (3,)
-    sat_v0 : 1D array-like, shape (3,)
-    sat_radius : float
-    sat_mass : float
-    halo : str
-    halo_pars : dict
-    disc : str
-    disc_pars : dict
-    bulge : str
-    bulge_pars : dict
-    modgrav : bool
-    beta : float
-    MW_r_screen : float
-    sat_r_screen : float
-    tracers : bool
-    N1 : int
-    N2 : int
-
-    Attributes
-    ----------
-
+    sat_x0: 1D array-like, shape (3,)
+        Position of satellite at beginning of simulation, in Galactocentric
+        Cartesian coordinates (i.e., Milky Way centre is at origin, disc plane
+        is x-y). UNITS: metres. 
+    sat_v0: 1D array-like, shape (3,)
+        Velocity of satellite at beginning of simulation, in Galactocentric
+        Cartesian coordinates (i.e., Milky Way centre is at origin, disc plane
+        is x-y). UNITS: metres/second.
+    sat_radius: float
+        Hernquist scale radius of satellite. UNITS: metres.
+    sat_mass: float
+        Total mass of satellite. UNITS: kilograms.
+    halo: str, optional {NFW, trilog, point}
+        Type of dark matter halo for Milky Way potential, options are
+        'NFW' (Navarro-Frenk-White, default), 'trilog' (triaxial logarithmic),
+        or 'point' (point mass). Note that each halo type expects different
+        parameters, see 'halo_pars' below.
+    halo_pars: dict or 'default', optional
+        Milky Way dark matter halo parameters. Parameters depend on 'halo' type
+        above. If 'default', then default parameter choices are chosen,
+        otherwise dict should have appropriate keys for the halo type, with
+        vals in SI units:
+            - 'NFW' expects 'M_vir' and 'c_vir' (default: 1e+12*M_sun and 12),
+            - 'trilog' expects 'v_halo', 'q1', 'qz', 'phi', and 'r_halo'
+              (default: 121900, 1.38, 1.36, 97*pi/180, 12*kpc)
+            - 'point' expects 'M' (default: 1e+12*M_sun).
+    disc: str (or None), optional {'miyamoto', None}
+        Model for Milky Way disc. Only options are Miyamoto-Nagai disc, or no
+        disc at all. If 'miyamoto', then 'disc_pars' should be set accordingly.
+    disc_pars: dict or 'default', optional
+        Parameters of Milky Way disc. Parameters depend on 'disc' type
+        above. If 'default', then default parameter choices are chosen,
+        otherwise dict should have appropriate keys for the disc type, with
+        vals in SI units:
+            - 'miyamoto' expects 'M_disc', 'a', and 'b' (default: 1e+11*M_sun,
+              6.5kpc, 0.26kpc)
+    bulge: str (or None), optional {'hernquist', None}
+        Model for Milky Way bulge. Only options are Hernquist bulge, or no
+        bulge at all. If 'hernquist', then 'bulge_pars' should be set
+        accordingly.
+    bulge_pars: dict or 'default', optional
+        Parameters of Milky Way bulge. Parameters depend on 'bulge' type
+        above. If 'default', then default parameter choices are chosen,
+        otherwise dict should have appropriate keys for the bulge type, with
+        vals in SI units:
+            - 'hernquist' expects 'M_hernquist' and 'a' (default: 
+              3.4e+10 M_sun, 0.7 kpc)
+    modgrav: bool, optional
+        Whether the fifth force is switched on. Default: False.
+    beta: float
+        If 'modgrav' is True, then 'beta' is the (dimensionless) coupling
+        strength of the fifth force. The fifth force (in the absence of
+        screening) is 2*beta**2 * gravity.
+    MW_r_screen: float
+        If 'modgrav' is True, Milky Way screening radius. UNITS: metres.
+    sat_r_screen: float
+        If 'modgrav' is True, satellite screening radius. UNITS: metres.
+    tracers: bool
+        Whether to add tracer particles (i.e. stream particles). If False,
+        simulation is simply single satellite particle orbiting the Milky Way.
+        Default: False.
+    N1: int
+        If 'tracers' is true, number of type 1 (i.e. dark matter) tracer
+        particles. Type 1 particles couple to the fifth force.
+    N2: int
+        If 'tracers' is true, number of type 2 (i.e. star) tracer
+        particles. Type 2 particles do not couple to the fifth force.
+    tracer_relax_time: float
+        Total time of relaxation phase before main loop. Default is 1e+17
+        seconds. UNITS: seconds.
+    tracer_df: str {'isotropic', 'anisotropic'}
+        Which distribution to use for tracer particles. See Naik et al, (2020)
+        for more details about this.
 
     Methods
     -------
+    Below are the user-facing methods of the class. Please see the
+    documentation of the methods themselves for further details.
+    
+    run: 
+        Run the main main simulation loop.
+    save:
+        Having already run the simulation, save the simulation data to file.
 
-
-    Examples
-    --------
     """
     def __init__(self, sat_x0, sat_v0, sat_radius, sat_mass,
                  halo='NFW', halo_pars='default',
@@ -55,9 +113,6 @@ class Simulation:
                  modgrav=False, beta=None, MW_r_screen=None, sat_r_screen=None,
                  tracers=False, N1=None, N2=None, tracer_relax_time=1e+17,
                  tracer_df='isotropic'):
-        """
-        Initialise an instance of class. See class docstring for more info.
-        """
 
         self._setup_MW(halo=halo, halo_pars=halo_pars,
                        disc=disc, disc_pars=disc_pars,
@@ -80,6 +135,8 @@ class Simulation:
         two class methods: self.MW_acc and self.MW_M_enc, i.e. functions to
         calculate acceleration due to Milky Way at a given point and MW mass
         enclosed by a given radius.
+        
+        Parameters are as described in class docstring.
         """
         # read halo type and get default parameters if necessary
         if halo == 'trilog':  # triaxial logarithmic halo
@@ -123,6 +180,7 @@ class Simulation:
         else:
             raise ValueError("Unrecognised halo type")
 
+
         # read disc type and get default parameters if necessary
         if disc == 'miyamoto':
             self.disc = disc
@@ -138,7 +196,6 @@ class Simulation:
                 for k in disc_pars.keys():
                     assert k in ['M_disc', 'a', 'b']
                 self.disc_pars = disc_pars
-
             # don't have analytic disc mass; set up grid to integrate density
             # and then can interpolate disc mass
             N_r = 2000  # number of cells in radial dimension
@@ -266,18 +323,21 @@ class Simulation:
         return
 
     def _setup_modgrav(self, modgrav, beta, MW_r_screen, sat_r_screen):
+        """
+        Set up fifth force, i.e. create class methods for fifth acceleration
+        on satellite and tracer particles.
+        """
 
         self.modgrav = modgrav
         self.beta = beta
         self.MW_r_screen = MW_r_screen
         self.sat_r_screen = sat_r_screen
 
+        # If fifth force is switched off, return zeros for accelerations
         if not modgrav:
-
             def mg_acc_tracer(pos):
                 acc = np.zeros_like(pos)
                 return acc
-
             def mg_acc_satellite(pos):
                 acc = np.zeros_like(pos)
                 return acc
@@ -344,6 +404,10 @@ class Simulation:
         return
 
     def _add_tracers(self, N1, N2, tracer_relax_time, tracer_df):
+        """
+        Set up tracer particles, i.e. take initial sample from chosen df, then
+        relax them in satellite potential for given time.
+        """
 
         from .tracers import sample
 
@@ -363,7 +427,7 @@ class Simulation:
         # displace to satellite position (add bulk velocity later)
         x0 += self.sat_x0
 
-        # integrate these tracers under satellite potential for a Gyr or so
+        # integrate these tracers under satellite potential
         pos, vel = self._relax_tracers(x0, v0, t_max=tracer_relax_time)
 
         # downsample N of these, excluding those which are ever more than 10a
@@ -372,7 +436,6 @@ class Simulation:
         allowed = [(r[:, i] < 10*a).all() for i in range(2*N_tracers)]
         inds1 = np.where(np.array(allowed))[0]
         assert inds1.size > N_tracers
-
         inds2 = np.random.choice(inds1, N_tracers, replace=False)
         x1 = pos[-1, inds2]
         v1 = vel[-1, inds2]
@@ -399,6 +462,10 @@ class Simulation:
         return
 
     def _relax_tracers(self, x0, v0, t_max):
+        """
+        Relax tracers in satellite potential. Note that this process also
+        adaptively finds timestep size for main simulation loop.
+        """
 
         N_part = x0.shape[0]
         N_snapshots = 500
@@ -407,6 +474,7 @@ class Simulation:
         positions[0] = x0
         velocities[0] = v0
 
+        # keep halving timestep size until energy conserved to within 2%
         dt = t_max / N_snapshots
         res = 1
         tol = 0.02
@@ -449,6 +517,7 @@ class Simulation:
                     velocities[snapcount] = v
                     snapcount += 1
 
+            # check energy conservation
             vi = velocities[0]
             vf = velocities[-1]
             xi = positions[0]
