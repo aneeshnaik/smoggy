@@ -191,7 +191,7 @@ class SimData:
         return
 
     def movie(self, length=20, orientation='y',
-              c1='#31A354', c2='#A33159'):
+              c1='#96C5B0', c2='#553555'):
         """
         Make movie of smoggy simulation.
 
@@ -241,8 +241,8 @@ class SimData:
 
         # set up initial artists for animation
         l, = ax1.plot([], [], c='lightgrey')
-        s1 = ax1.scatter(x1[0, :, 0], x1[0, :, 1], s=1, c=c1, alpha=0.6, label='Dark Matter', zorder=1)
-        s2 = ax1.scatter(x2[0, :, 0], x2[0, :, 1], s=1, c=c2, alpha=0.6, label='Stars', zorder=1)
+        s1 = ax1.scatter(x1[0, :, 0], x1[0, :, 1], s=1, c=c1, alpha=0.8, label='Dark Matter', zorder=2)
+        s2 = ax1.scatter(x2[0, :, 0], x2[0, :, 1], s=1, c=c2, alpha=0.8, label='Stars', zorder=1)
         t = ax1.text(0.5, 0.975, "{0:.2f} Gyr".format(times[0]), transform=ax1.transAxes, ha='center', va='top')
 
         # central MW blob
