@@ -99,7 +99,7 @@ class Simulation:
     -------
     Below are the user-facing methods of the class. Please see the
     documentation of the methods themselves for further details.
-    
+
     run:
         Run the main main simulation loop.
     save:

@@ -3,7 +3,7 @@
 """
 Created: April 2019
 Author: A. P. Naik
-Description: Miscellaneous functions used in gravstream module.
+Description: Miscellaneous functions used in smoggy.
 
 Functions
 ---------

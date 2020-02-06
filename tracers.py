@@ -13,6 +13,27 @@ sqrt = np.sqrt
 
 
 def hernquist_df_iso(theta, M, a):
+    """
+    Isotropic Hernquist distribution function; calculates log-probability of
+    given phase space position theta.
+
+    Functional form is Eq. (43) in Naik et al., (2020).
+
+    Parameters
+    ----------
+    theta: array-like, shape (6,)
+        Array containing phase space position (x, y, z, vx, vy, vz). UNITS:
+        metres and metres/second for positions/velocities respectively.
+    M: float
+        Total mass of Hernquist blob. UNITS: kilograms.
+    a: float
+        Scale radius of Hernquist blob. UNITS: metres.
+
+    Returns
+    -------
+    lnf: float
+        Unnormalised ln-probability associated with phase space position.
+    """
 
     v = np.linalg.norm(theta[3:])
     r = np.linalg.norm(theta[:3])
@@ -34,6 +55,28 @@ def hernquist_df_iso(theta, M, a):
 
 
 def hernquist_df_aniso(theta, M, a):
+    """
+    Anisotropic Hernquist distribution function; calculates log-probability of
+    given phase space position theta.
+
+    Functional form is Eq. (44) in Naik et al., (2020)
+
+    Parameters
+    ----------
+    theta: array-like, shape (6,)
+        Array containing phase space position (x, y, z, vx, vy, vz). UNITS:
+        metres and metres/second for positions/velocities respectively.
+    M: float
+        Total mass of Hernquist blob. UNITS: kilograms.
+    a: float
+        Scale radius of Hernquist blob. UNITS: metres.
+
+    Returns
+    -------
+    lnf: float
+        Unnormalised ln-probability associated with phase space position.
+    """
+
     v = np.linalg.norm(theta[3:])
     r = np.linalg.norm(theta[:3])
 
@@ -52,7 +95,35 @@ def hernquist_df_aniso(theta, M, a):
 
 
 def sample(N, M, a, df='isotropic'):
+    """
+    Sample N tracer particles from Hernquist distribution function df,
+    parametrised by mass M and scale radius a.
 
+    Sampler uses 50 MCMC walkers, each taking N iterations (after burn-in).
+    These samples are then thinned by an interval of 50, giving N
+    quasi-independent samples.
+
+    Parameters
+    ----------
+    N: int
+        Number of particles to sample. Note: this needs to be a multiple of 50.
+    M: float
+        Total mass of Hernquist blob. UNITS: kilograms.
+    a: float
+        Scale radius of Hernquist blob. UNITS: metres.
+    df: {'isotropic' (default), 'anisoptropic'}, optional
+        Whether to use isotropic or anisotropic distribution functions. The
+        functions are Eqs. (43) and (44) respectively in Naik et al., (2020).
+
+    Returns
+    -------
+    pos: (N, 3) array
+        Positions of sampled particles, in Cartesian coordinates. UNITS:
+        metres.
+    vel: (N, 3) array
+        Velocities of sampled particles, in Cartesian coordinates. UNITS:
+        metres/second.
+    """
     if df == 'isotropic':
         df_function = hernquist_df_iso
     elif df == 'anisotropic':
