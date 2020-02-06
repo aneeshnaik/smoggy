@@ -1,9 +1,10 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-Created:
+Created: November 2019
 Author: A. P. Naik
-Description:
+Description: Various functions (potential, acceleration enclosed mass) for
+a point mass Milky Way dark matter halo.
 """
 import numpy as np
 from smoggy.constants import G
@@ -57,6 +58,22 @@ def acceleration(pos, M):
 
 
 def mass_enc(pos, M):
+    """
+    For point mass, mass enclosed by pos. Of course, this is simply the total
+    mass unless pos is at the origin.
+
+    Parameters
+    ----------
+    pos : numpy array, shape (N, 3) or (3,)
+        Positions at which to calculate potential. UNITS: metres.
+    M : float
+        Mass of point mass. UNITS: kg.
+
+    Returns
+    -------
+    M_enc : numpy array, shape (N,) or float
+        Mass enclosed by given positions. UNITS: m^2/s^2.
+    """
 
     r = np.linalg.norm(pos, axis=-1)
 

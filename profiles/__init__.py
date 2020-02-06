@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-Created:
+Created: April 2019
 Author: A. P. Naik
-Description:
+Description: init file of smoggy.profiles.
 """

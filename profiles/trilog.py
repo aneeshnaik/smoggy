@@ -1,15 +1,44 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-Created:
+Created: June 2019
 Author: A. P. Naik
-Description:
+Description: Various functions (potential, density, acceleration) for the
+triaxial logarithmic profile (see Law and Majewski, 2010) for the Milky Way
+dark matter halo.
 """
 from smoggy.constants import pi, G
 import numpy as np
 
 
 def potential(pos, v_halo, q1, qz, phi, r_halo):
+    """
+    Potential of triaxial logarithmic halo (see Law and Majewski, 2010) at
+    given position.
+
+    Parameters
+    ----------
+    pos: (3,) or (N, 3) array
+        Position, in Galactocentric Cartesian coordinates, at which to evaluate
+        potential. UNITS: metres.
+    v_halo: float
+        Overall normalisation. UNITS: metres/second.
+    q1: float
+        Axial flattening along equatorial axis. Dimensionless.
+    qz: float
+        Axial flattening perpendicular to galactic disc. Dimensionless.
+    phi: float
+        Rotation of ellipsoid about Galactic Z-axis. phi=0 corresponds with
+        the q1 flattening being coincident with the Galactic X-axis. UNITS:
+        radians.
+    r_halo: float
+        Scale length of halo. UNITS: metres.
+
+    Returns
+    -------
+    pot: float or (N,) array, depending on shape of 'pos' parameter
+        Potential at 'pos'. UNITS: metres^2/second^2.
+    """
 
     c = np.cos(phi)
     s = np.sin(phi)
@@ -28,6 +57,33 @@ def potential(pos, v_halo, q1, qz, phi, r_halo):
 
 
 def density(pos, v_halo, q1, qz, phi, r_halo):
+    """
+    Density of triaxial logarithmic halo (see Law and Majewski, 2010) at
+    given position.
+
+    Parameters
+    ----------
+    pos: (3,) or (N, 3) array
+        Position, in Galactocentric Cartesian coordinates, at which to evaluate
+        potential. UNITS: metres.
+    v_halo: float
+        Overall normalisation. UNITS: metres/second.
+    q1: float
+        Axial flattening along equatorial axis. Dimensionless.
+    qz: float
+        Axial flattening perpendicular to galactic disc. Dimensionless.
+    phi: float
+        Rotation of ellipsoid about Galactic Z-axis. phi=0 corresponds with
+        the q1 flattening being coincident with the Galactic X-axis. UNITS:
+        radians.
+    r_halo: float
+        Scale length of halo. UNITS: metres.
+
+    Returns
+    -------
+    rho: float or (N,) array, depending on shape of 'pos' parameter
+        Density at 'pos'. UNITS: kilograms/metres^3
+    """
 
     c = np.cos(phi)
     s = np.sin(phi)
@@ -51,6 +107,33 @@ def density(pos, v_halo, q1, qz, phi, r_halo):
 
 
 def acceleration(pos, v_halo, q1, qz, phi, r_halo):
+    """
+    Acceleration due to triaxial logarithmic halo (see Law and Majewski, 2010)
+    at given position.
+
+    Parameters
+    ----------
+    pos: (3,) or (N, 3) array
+        Position, in Galactocentric Cartesian coordinates, at which to evaluate
+        potential. UNITS: metres.
+    v_halo: float
+        Overall normalisation. UNITS: metres/second.
+    q1: float
+        Axial flattening along equatorial axis. Dimensionless.
+    qz: float
+        Axial flattening perpendicular to galactic disc. Dimensionless.
+    phi: float
+        Rotation of ellipsoid about Galactic Z-axis. phi=0 corresponds with
+        the q1 flattening being coincident with the Galactic X-axis. UNITS:
+        radians.
+    r_halo: float
+        Scale length of halo. UNITS: metres.
+
+    Returns
+    -------
+    acc: array, same shape as 'pos' parameter
+        Acceleration at 'pos'. UNITS: metres/second^2
+    """
 
     c = np.cos(phi)
     s = np.sin(phi)
@@ -69,8 +152,3 @@ def acceleration(pos, v_halo, q1, qz, phi, r_halo):
     dphidz = prefac*(2*z/qz**2)
 
     return np.stack((-dphidx, -dphidy, -dphidz), axis=-1)
-
-
-def mass_enc(pos, rho_0, r_s):
-    assert False
-    return
