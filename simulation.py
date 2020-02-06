@@ -16,7 +16,7 @@ class Simulation:
     """
     Object that sets up and runs simulations of satellite and tracer particles
     in Milky Way potential, with optional fifth force.
-    
+
     For usage examples, see smoggy README and template runscripts.
 
     Parameters
@@ -24,7 +24,7 @@ class Simulation:
     sat_x0: 1D array-like, shape (3,)
         Position of satellite at beginning of simulation, in Galactocentric
         Cartesian coordinates (i.e., Milky Way centre is at origin, disc plane
-        is x-y). UNITS: metres. 
+        is x-y). UNITS: metres.
     sat_v0: 1D array-like, shape (3,)
         Velocity of satellite at beginning of simulation, in Galactocentric
         Cartesian coordinates (i.e., Milky Way centre is at origin, disc plane
@@ -66,7 +66,7 @@ class Simulation:
         above. If 'default', then default parameter choices are chosen,
         otherwise dict should have appropriate keys for the bulge type, with
         vals in SI units:
-            - 'hernquist' expects 'M_hernquist' and 'a' (default: 
+            - 'hernquist' expects 'M_hernquist' and 'a' (default:
               3.4e+10 M_sun, 0.7 kpc)
     modgrav: bool, optional
         Whether the fifth force is switched on. Default: False.
@@ -100,7 +100,7 @@ class Simulation:
     Below are the user-facing methods of the class. Please see the
     documentation of the methods themselves for further details.
     
-    run: 
+    run:
         Run the main main simulation loop.
     save:
         Having already run the simulation, save the simulation data to file.
@@ -135,7 +135,7 @@ class Simulation:
         two class methods: self.MW_acc and self.MW_M_enc, i.e. functions to
         calculate acceleration due to Milky Way at a given point and MW mass
         enclosed by a given radius.
-        
+
         Parameters are as described in class docstring.
         """
         # read halo type and get default parameters if necessary
@@ -179,7 +179,6 @@ class Simulation:
             assert False, "Need at least a halo for the Milky Way!"
         else:
             raise ValueError("Unrecognised halo type")
-
 
         # read disc type and get default parameters if necessary
         if disc == 'miyamoto':
@@ -338,6 +337,7 @@ class Simulation:
             def mg_acc_tracer(pos):
                 acc = np.zeros_like(pos)
                 return acc
+
             def mg_acc_satellite(pos):
                 acc = np.zeros_like(pos)
                 return acc
@@ -698,7 +698,19 @@ class Simulation:
         return
 
     def save(self, filename):
+        """
+        Save simulation data as a .hdf5 file. All relevant simulation
+        parameters are stored, as well as 4 quantities at each snapshot:
+        position, velocity, whether a particle is gravitationally unbound
+        ('Disrupted'), and the time at which the particle was gravitationally
+        unbound ('DisruptionTime').
 
+        Parameters
+        ----------
+        filename: str
+            Filename in which to store simulation data. If filename does not
+            end in '.hdf5', then this is appended automatically.
+        """
         # check correct file ending
         if filename[-5:] == '.hdf5':
             f = h5py.File(filename, 'w')
