@@ -93,7 +93,7 @@ def density(pos, M_vir, c_vir, softening=0.0001*kpc):
     Parameters
     ----------
     pos : numpy array, shape (N, 3) or (3,)
-        Positions at which to calculate potential. UNITS: metres.
+        Positions at which to calculate density. UNITS: metres.
     M_vir: float
         Virial mass of halo. UNITS: kilograms.
     c_vir: float
@@ -103,8 +103,8 @@ def density(pos, M_vir, c_vir, softening=0.0001*kpc):
 
     Returns
     -------
-    phi : (N,) array or float, depending on shape of 'pos' parameter.
-        Density at given positions. UNITS: kg/m^3.
+    rho : (N,) array or float, depending on shape of 'pos' parameter.
+        Density at given positions. UNITS: kilogram/metre^3.
     """
     rho_0, r_s = NFW_param_conversion(M_vir, c_vir)
 
@@ -117,7 +117,21 @@ def density(pos, M_vir, c_vir, softening=0.0001*kpc):
 
 def acceleration(pos, M_vir, c_vir):
     """
+    Acceleration due to NFW halo at given position.
 
+    Parameters
+    ----------
+    pos : numpy array, shape (N, 3) or (3,)
+        Positions at which to calculate acceleration. UNITS: metres.
+    M_vir: float
+        Virial mass of halo. UNITS: kilograms.
+    c_vir: float
+        Virial concentration of halo. Dimensionless.
+
+    Returns
+    -------
+    acc : array, same shape as 'pos' parameter.
+        Acceleration at given positions. UNITS: m/s^2.
     """
     rho_0, r_s = NFW_param_conversion(M_vir, c_vir)
 
@@ -134,6 +148,23 @@ def acceleration(pos, M_vir, c_vir):
 
 
 def mass_enc(pos, M_vir, c_vir):
+    """
+    Mass enclosed within given position in NFW halo.
+
+    Parameters
+    ----------
+    pos : numpy array, shape (N, 3) or (3,)
+        Positions at which to calculate enclosed mass. UNITS: metres.
+    M_vir: float
+        Virial mass of halo. UNITS: kilograms.
+    c_vir: float
+        Virial concentration of halo. Dimensionless.
+
+    Returns
+    -------
+    M_enc : (N,) array or float, depending on shape of 'pos' parameter.
+        Mass enclosed at given positions. UNITS: kilogram
+    """
     rho_0, r_s = NFW_param_conversion(M_vir, c_vir)
 
     r = np.linalg.norm(pos, axis=-1)

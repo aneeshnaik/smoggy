@@ -1,9 +1,10 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-Created:
+Created: April 2019
 Author: A. P. Naik
-Description:
+Description: Various functions (potential, density, acceleration, enclosed
+mass) for a Hernquist profile.
 """
 from smoggy.constants import G, pi, kpc
 import numpy as np
@@ -11,18 +12,16 @@ import numpy as np
 
 def potential(pos, M_hernquist, a):
     """
-    Potential of a Hernquist bulge. Default parameter values are MW
-    parameters from Law and Majewski 2010.
+    Potential of a Hernquist profile.
 
     Parameters
     ----------
     pos : numpy array, shape (N, 3) or (3,)
         Positions at which to calculate potential. UNITS: metres.
     M_hernquist : float
-        Overall mass normalisation. Default is 3.4 x 10^10 solar masses.
-        UNITS: kg.
+        Overall mass normalisation. UNITS: kg.
     a : float
-        Scale radius. Default is 0.7 kpc. UNITS: metres.
+        Scale radius. UNITS: metres.
 
     Returns
     -------
@@ -36,18 +35,18 @@ def potential(pos, M_hernquist, a):
 
 def density(pos, M_hernquist, a, softening=0.0001*kpc):
     """
-    Density of a Hernquist bulge. Default parameter values are MW
-    parameters from Law and Majewski 2010.
+    Density of a Hernquist profile.
 
     Parameters
     ----------
     pos : numpy array, shape (N, 3) or (3,)
-        Positions at which to calculate potential. UNITS: metres.
+        Positions at which to calculate density. UNITS: metres.
     M_hernquist : float
-        Overall mass normalisation. Default is 3.4 x 10^10 solar masses.
-        UNITS: kg.
+        Overall mass normalisation. UNITS: kg.
     a : float
-        Scale radius. Default is 0.7 kpc. UNITS: metres.
+        Scale radius. UNITS: metres.
+    softening: float, optional
+        Gravitational softening. Default is 1e-4 kpc. UNITS: metres.
 
     Returns
     -------
@@ -64,18 +63,16 @@ def density(pos, M_hernquist, a, softening=0.0001*kpc):
 
 def acceleration(pos, M_hernquist, a):
     """
-    Acceleration due to a Hernquist bulge. Default parameter values are MW
-    parameters from Law and Majewski 2010.
+    Acceleration due to a Hernquist profile.
 
     Parameters
     ----------
     pos : numpy array, shape (N, 3) or (3,)
-        Positions at which to calculate potential. UNITS: metres.
+        Positions at which to calculate acceleration. UNITS: metres.
     M_hernquist : float
-        Overall mass normalisation. Default is 3.4 x 10^10 solar masses.
-        UNITS: kg.
+        Overall mass normalisation. UNITS: kg.
     a : float
-        Scale radius. Default is 0.7 kpc. UNITS: metres.
+        Scale radius. UNITS: metres.
 
     Returns
     -------
@@ -92,6 +89,23 @@ def acceleration(pos, M_hernquist, a):
 
 
 def mass_enc(pos, M_hernquist, a):
+    """
+    Mass enclosed within given position in Hernquist profile.
+
+    Parameters
+    ----------
+    pos : numpy array, shape (N, 3) or (3,)
+        Positions at which to calculate enclosed mass. UNITS: metres.
+    M_hernquist : float
+        Overall mass normalisation. UNITS: kg.
+    a : float
+        Scale radius. UNITS: metres.
+
+    Returns
+    -------
+    M_enc : (N,) array or float, depending on shape of 'pos' parameter.
+        Mass enclosed at given positions. UNITS: kilogram
+    """
     r = np.linalg.norm(pos, axis=-1)
     x = r/a
     M_enc = M_hernquist*x**2/(1+x)**2

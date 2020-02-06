@@ -1,15 +1,36 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-Created:
+Created: April 2019
 Author: A. P. Naik
-Description:
+Description: Various functions (potential, density, acceleration, enclosed
+mass) for a truncated Hernquist profile, i.e. a Hernquist profile truncated at
+10 scale radii.
 """
 import numpy as np
 from smoggy.constants import pi, G
 
 
 def density(pos, M, a):
+    """
+    Density of a truncated Hernquist profile, i.e. a Hernquist profile
+    truncated at 10 scale radii.
+
+    Parameters
+    ----------
+    pos : numpy array, shape (N, 3) or (3,)
+        Positions at which to calculate density. UNITS: metres.
+    M : float
+        Total mass of truncated profile (i.e. Hernquist mass within 10 scale
+        radii). UNITS: kilograms.
+    a : float
+        Scale radius. UNITS: metres.
+
+    Returns
+    -------
+    rho : numpy array, shape (N,) or float
+        Density at given positions. UNITS: kg/m^3.
+    """
 
     rho_0 = 121*M/(200*pi*a**3)
     x = np.sqrt(pos[..., 0]**2 + pos[..., 1]**2 + pos[..., 2]**2)/a
@@ -33,7 +54,24 @@ def density(pos, M, a):
 
 
 def mass_enc(pos, M, a):
+    """
+    Mass enclosed within given position in truncated Hernquist profile, i.e.
+    Hernquist profile truncated at 10 scale radii.
 
+    Parameters
+    ----------
+    pos : numpy array, shape (N, 3) or (3,)
+        Positions at which to calculate enclosed mass. UNITS: metres.
+    M : float
+        Overall mass normalisation. UNITS: kg.
+    a : float
+        Scale radius. UNITS: metres.
+
+    Returns
+    -------
+    M_enc : (N,) array or float, depending on shape of 'pos' parameter.
+        Mass enclosed at given positions. UNITS: kilogram
+    """
     x = np.sqrt(pos[..., 0]**2 + pos[..., 1]**2 + pos[..., 2]**2)/a
 
     if pos.ndim == 1:
@@ -55,7 +93,24 @@ def mass_enc(pos, M, a):
 
 
 def potential(pos, M, a):
+    """
+    Potential of a truncated Hernquist profile, i.e. a Hernquist profile
+    truncated at 10 scale radii.
 
+    Parameters
+    ----------
+    pos : numpy array, shape (N, 3) or (3,)
+        Positions at which to calculate potential. UNITS: metres.
+    M : float
+        Overall mass normalisation. UNITS: kg.
+    a : float
+        Scale radius. UNITS: metres.
+
+    Returns
+    -------
+    phi : numpy array, shape (N,) or float
+        Potential at given positions. UNITS: m^2/s^2.
+    """
     r = np.sqrt(pos[..., 0]**2 + pos[..., 1]**2 + pos[..., 2]**2)
     x = r/a
 
@@ -77,7 +132,24 @@ def potential(pos, M, a):
 
 
 def acceleration(pos, M, a):
+    """
+    Acceleration due to a Hernquist profile, i.e. a Hernquist profile
+    truncated at 10 scale radii.
 
+    Parameters
+    ----------
+    pos : numpy array, shape (N, 3) or (3,)
+        Positions at which to calculate acceleration. UNITS: metres.
+    M : float
+        Overall mass normalisation. UNITS: kg.
+    a : float
+        Scale radius. UNITS: metres.
+
+    Returns
+    -------
+    acc : numpy array, shape same as pos
+        Acceleration at given positions. UNITS: m/s^2.
+    """
     r = np.sqrt(pos[..., 0]**2 + pos[..., 1]**2 + pos[..., 2]**2)
     x = r/a
 

@@ -1,9 +1,10 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-Created:
+Created: April 2019
 Author: A. P. Naik
-Description:
+Description: Various functions (potential, density, acceleration, enclosed
+mass) for a Miyamoto-Nagai galactic disc.
 """
 from smoggy.constants import G, pi
 import numpy as np
@@ -11,19 +12,18 @@ import numpy as np
 
 def potential(pos, M_disc, a, b):
     """
-    Potential of a Miyamoto-Nagai disc. Default parameter values are MW
-    parameters from Law and Majewski 2010.
+    Potential of a Miyamoto-Nagai disc.
 
     Parameters
     ----------
     pos : numpy array, shape (N, 3) or (3,)
         Positions at which to calculate potential. UNITS: metres.
     M_disc : float
-        Overall mass normalisation. Default is 10^11 solar masses. UNITS: kg.
+        Overall mass normalisation. UNITS: kg.
     a : float
-        Disc scale length. Default is 6.5 kpc. UNITS: metres.
+        Disc scale length. UNITS: metres.
     b : float
-        Disc scale width. Default is 0.26 kpc. UNITS: metres.
+        Disc scale width. UNITS: metres.
 
     Returns
     -------
@@ -45,19 +45,18 @@ def potential(pos, M_disc, a, b):
 
 def density(pos, M_disc, a, b):
     """
-    Density of a Miyamoto-Nagai disc. Default parameter values are MW
-    parameters from Law and Majewski 2010.
+    Density of a Miyamoto-Nagai disc.
 
     Parameters
     ----------
     pos : numpy array, shape (N, 3) or (3,)
         Positions at which to calculate potential. UNITS: metres
     M_disc : float
-        Overall mass normalisation. Default is 10^11 solar masses. UNITS: kg
+        Overall mass normalisation. UNITS: kg
     a : float
-        Disc scale length. Default is 6.5 kpc. UNITS: metres.
+        Disc scale length. UNITS: metres.
     b : float
-        Disc scale width. Default is 0.26 kpc. UNITS: metres.
+        Disc scale width. UNITS: metres.
 
     Returns
     -------
@@ -81,19 +80,18 @@ def density(pos, M_disc, a, b):
 
 def acceleration(pos, M_disc, a, b):
     """
-    Acceleration due to a Miyamoto-Nagai disc. Default parameter values are MW
-    parameters from Law and Majewski 2010.
+    Acceleration due to a Miyamoto-Nagai disc.
 
     Parameters
     ----------
     pos : numpy array, shape (N, 3) or (3,)
         Positions at which to calculate potential. UNITS: metres
     M_disc : float
-        Overall mass normalisation. Default is 10^11 solar masses. UNITS: kg
+        Overall mass normalisation. UNITS: kg
     a : float
-        Disc scale length. Default is 6.5 kpc. UNITS: metres.
+        Disc scale length. UNITS: metres.
     b : float
-        Disc scale width. Default is 0.26 kpc. UNITS: metres.
+        Disc scale width. UNITS: metres.
 
     Returns
     -------
@@ -119,6 +117,32 @@ def acceleration(pos, M_disc, a, b):
 
 
 def M_enc_grid(N_r, N_th, r_max, M_disc, a, b):
+    """
+    Calculate enclosed mass of Miyamoto-Nagai disc in spherical shells, so that
+    enclosed mass at arbitrary radius can be interpolated.
+
+    Parameters
+    ----------
+    N_r : int
+        Number of radial bins
+    N_th : int
+        Number of polar bins
+    r_max : float
+        Radius of outermost spherical sphell. UNITS: metres.
+    M_disc : float
+        Overall mass normalisation. UNITS: kg
+    a : float
+        Disc scale length. UNITS: metres.
+    b : float
+        Disc scale width. UNITS: metres.
+
+    Returns
+    -------
+    r_edges : (N_r+1,) array
+        Spherical radii. First radius is 0. UNITS: metres.
+    M_enc : (N_r+1,) array
+        Mass enclosed in r_edges. First is be 0. UNITS: kilograms.
+    """
 
     # set up r grid
     r_edges = np.linspace(0, r_max, num=N_r+1)  # cell edges
