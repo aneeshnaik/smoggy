@@ -3,8 +3,8 @@
 """
 Created: April 2019
 Author: A. P. Naik
-Description: 'Simulation' class is main object of smoggy package. Sets up and
-runs simulations.
+Description: 'SmogSimulation' class is main object of smoggy package. Sets up
+and runs simulations.
 """
 import numpy as np
 import h5py
@@ -12,7 +12,7 @@ from .constants import kpc, M_sun, pi
 from .util import print_progress
 
 
-class Simulation:
+class SmogSimulation:
     """
     Object that sets up and runs simulations of satellite and tracer particles
     in Milky Way potential, with optional fifth force.
@@ -702,8 +702,8 @@ class Simulation:
         Save simulation data as a .hdf5 file. All relevant simulation
         parameters are stored, as well as 4 quantities at each snapshot:
         position, velocity, whether a particle is gravitationally unbound
-        ('Disrupted'), and the time at which the particle was gravitationally
-        unbound ('DisruptionTime').
+        ('Disrupted'), and the index of the timestep at which the particle was
+        gravitationally unbound ('DisruptionTime').
 
         Parameters
         ----------

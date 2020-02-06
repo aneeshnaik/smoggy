@@ -6,6 +6,7 @@ Author: A. P. Naik
 Description: __init__ file of smoggy package. Key object is 'Simulation'
 object, which sets up and runs simulations.
 """
-from .simulation import Simulation
+from .simulation import SmogSimulation
+from .output import SmogOutput
 
-__all__ = ['Simulation']
+__all__ = ['SmogSimulation', 'SmogOutput']
