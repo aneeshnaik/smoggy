@@ -152,3 +152,7 @@ def acceleration(pos, v_halo, q1, qz, phi, r_halo):
     dphidz = prefac*(2*z/qz**2)
 
     return np.stack((-dphidx, -dphidy, -dphidz), axis=-1)
+
+def mass_enc(pos, v_halo, q1, qz, phi, r_halo):
+    assert False, "Not supported yet!"
+    return
