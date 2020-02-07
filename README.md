@@ -72,7 +72,7 @@ import matplotlib.pyplot as plt
 
 
 # load data
-d = smoggy.SmogOutput("/data/an485/smoggy_sims_new/C/2")
+d = smoggy.SmogOutput("saved_simulation.hdf5")
 
 # get particle positions
 x0 = d.p0_positions[-1]/kpc
