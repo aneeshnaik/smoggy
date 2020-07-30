@@ -148,8 +148,8 @@ class SmogSimulation:
                 self.halo_pars = {'v_halo': 121900,
                                   'q1': 1.38,
                                   'qz': 1.36,
-                                  'phi': 97*pi/180,
-                                  'r_halo': 12*kpc}
+                                  'phi': 97 * pi / 180,
+                                  'r_halo': 12 * kpc}
             else:
                 assert False, "Not supported yet"
         elif halo == 'NFW':
