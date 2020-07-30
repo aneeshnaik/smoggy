@@ -1,23 +1,25 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
+'SmogSimulation' class is main object of smoggy package. See documentation.
+
 Created: April 2019
 Author: A. P. Naik
-Description: 'SmogSimulation' class is main object of smoggy package. Sets up
-and runs simulations.
 """
 import numpy as np
 import h5py
-from .constants import kpc, M_sun, pi
+from mw_poisson import MilkyWay
 from .util import print_progress
+from .constants import pc, kpc, M_sun
 
 
 class SmogSimulation:
     """
-    Object that sets up and runs simulations of satellite and tracer particles
-    in Milky Way potential, with optional fifth force.
+    Object that sets up and runs simulations.
 
-    For usage examples, see smoggy README and template runscripts.
+    For usage examples, see smoggy README and template runscripts. For more
+    information about Milky Way model and meanings of the disc and spheroid
+    parameters, see mw_poisson README and documentation.
 
     Parameters
     ----------
@@ -33,41 +35,18 @@ class SmogSimulation:
         Hernquist scale radius of satellite. UNITS: metres.
     sat_mass: float
         Total mass of satellite. UNITS: kilograms.
-    halo: str, optional {NFW, trilog, point}
-        Type of dark matter halo for Milky Way potential, options are
-        'NFW' (Navarro-Frenk-White, default), 'trilog' (triaxial logarithmic),
-        or 'point' (point mass). Note that each halo type expects different
-        parameters, see 'halo_pars' below.
-    halo_pars: dict or 'default', optional
-        Milky Way dark matter halo parameters. Parameters depend on 'halo' type
-        above. If 'default', then default parameter choices are chosen,
-        otherwise dict should have appropriate keys for the halo type, with
-        vals in SI units:
-            - 'NFW' expects 'M_vir' and 'c_vir' (default: 1e+12*M_sun and 12),
-            - 'trilog' expects 'v_halo', 'q1', 'qz', 'phi', and 'r_halo'
-              (default: 121900, 1.38, 1.36, 97*pi/180, 12*kpc)
-            - 'point' expects 'M' (default: 1e+12*M_sun).
-    disc: str (or None), optional {'miyamoto', None}
-        Model for Milky Way disc. Only options are Miyamoto-Nagai disc, or no
-        disc at all. If 'miyamoto', then 'disc_pars' should be set accordingly.
-    disc_pars: dict or 'default', optional
-        Parameters of Milky Way disc. Parameters depend on 'disc' type
-        above. If 'default', then default parameter choices are chosen,
-        otherwise dict should have appropriate keys for the disc type, with
-        vals in SI units:
-            - 'miyamoto' expects 'M_disc', 'a', and 'b' (default: 1e+11*M_sun,
-              6.5kpc, 0.26kpc)
-    bulge: str (or None), optional {'hernquist', None}
-        Model for Milky Way bulge. Only options are Hernquist bulge, or no
-        bulge at all. If 'hernquist', then 'bulge_pars' should be set
-        accordingly.
-    bulge_pars: dict or 'default', optional
-        Parameters of Milky Way bulge. Parameters depend on 'bulge' type
-        above. If 'default', then default parameter choices are chosen,
-        otherwise dict should have appropriate keys for the bulge type, with
-        vals in SI units:
-            - 'hernquist' expects 'M_hernquist' and 'a' (default:
-              3.4e+10 M_sun, 0.7 kpc)
+    ndiscs : int
+        Number of disc components in galaxy. Default is 4.
+    dpars : list of dicts, length ndiscs, or str 'default'
+        Each dict should contain 5 items, as specified in 'Disc Parameters'
+        below. Default is 'default', corresponding to MacMillan (2017) MW
+        parameters.
+    nspheroids : int
+        Number of spheroidal components in galaxy. Default is 2.
+    spars : list of dicts, length nspheroids, or str 'default'
+        Each dict should contain 6 items, as specified in 'Spheroid Parameters'
+        below. Default is 'default', corresponding to MacMillan (2017) MW
+        parameters.
     modgrav: bool, optional
         Whether the fifth force is switched on. Default: False.
     beta: float
@@ -95,6 +74,40 @@ class SmogSimulation:
         Which distribution to use for tracer particles. See Naik et al, (2020)
         for more details about this.
 
+    Disc Parameters
+    ---------------
+    See mw_poisson documentation (e.g. theory.pdf) for meanings of these
+    parameters.
+
+    sigma_0 : float
+        Density normalisation. UNITS: kg/m^2
+    R_0 : float
+        Scale radius. UNITS: m
+    R_h : float
+        Hole radius. UNITS: m
+    z_0 : float
+        Scale height of disc. UNITS: m
+    form : string, {'exponential','sech'}
+        Scale density. UNITS: kg / m^3
+
+    Spheroid Parameters
+    -------------------
+    See mw_poisson documentation (e.g. theory.pdf) for meanings of these
+    parameters.
+
+    alpha : float
+        Outer slope.
+    beta : float
+        Inner slope.
+    q : float
+        Flattening
+    r_cut : float
+        Exponential cutoff radius. UNITS: m
+    r_0 : float
+        Scale radius. UNITS: m
+    rho_0 : float
+        Scale density. UNITS: kg / m^3
+
     Methods
     -------
     Below are the user-facing methods of the class. Please see the
@@ -106,17 +119,15 @@ class SmogSimulation:
         Having already run the simulation, save the simulation data to file.
 
     """
+
     def __init__(self, sat_x0, sat_v0, sat_radius, sat_mass,
-                 halo='NFW', halo_pars='default',
-                 disc='miyamoto', disc_pars='default',
-                 bulge='hernquist', bulge_pars='default',
+                 ndiscs=4, dpars='default', nspheroids=2, spars='default',
                  modgrav=False, beta=None, MW_r_screen=None, sat_r_screen=None,
                  tracers=False, N1=None, N2=None, tracer_relax_time=1e+17,
                  tracer_df='isotropic'):
 
-        self._setup_MW(halo=halo, halo_pars=halo_pars,
-                       disc=disc, disc_pars=disc_pars,
-                       bulge=bulge, bulge_pars=bulge_pars)
+        self._setup_MW(ndiscs=ndiscs, dpars=dpars,
+                       nspheroids=nspheroids, spars=spars)
 
         self._setup_satellite(sat_x0=sat_x0, sat_v0=sat_v0,
                               sat_radius=sat_radius, sat_mass=sat_mass,
@@ -129,143 +140,65 @@ class SmogSimulation:
 
         return
 
-    def _setup_MW(self, halo, halo_pars, disc, disc_pars, bulge, bulge_pars):
+    def _setup_MW(self, ndiscs, dpars, nspheroids, spars):
         """
-        Set up Milky Way profile. Main purpose of this function is to create
-        two class methods: self.MW_acc and self.MW_M_enc, i.e. functions to
-        calculate acceleration due to Milky Way at a given point and MW mass
-        enclosed by a given radius.
+        Set up Milky Way profile.
+
+        Main purpose of this function is to create two class methods:
+        self.MW_acc and self.MW_M_enc, i.e. functions to calculate acceleration
+        due to Milky Way at a given point and MW mass enclosed by a given
+        spherical radius. This is done by means of a mw_poisson.MilkyWay
+        object.
 
         Parameters are as described in class docstring.
         """
-        # read halo type and get default parameters if necessary
-        if halo == 'trilog':  # triaxial logarithmic halo
-            self.halo = halo
-            from .profiles.trilog import acceleration as halo_acc
-            from .profiles.trilog import mass_enc as halo_mass
-            if halo_pars == 'default':
-                # default parameters from LM10
-                self.halo_pars = {'v_halo': 121900,
-                                  'q1': 1.38,
-                                  'qz': 1.36,
-                                  'phi': 97 * pi / 180,
-                                  'r_halo': 12 * kpc}
-            else:
-                assert False, "Not supported yet"
-        elif halo == 'NFW':
-            self.halo = halo
-            from .profiles.NFW import acceleration as halo_acc
-            from .profiles.NFW import mass_enc as halo_mass
-            if halo_pars == 'default':
-                self.halo_pars = {'M_vir': 1e+12*M_sun,
-                                  'c_vir': 12}
-            else:
-                # checking halo parameters are understood
-                for k in halo_pars.keys():
-                    assert k in ['M_vir', 'c_vir']
-                self.halo_pars = halo_pars
-        elif halo == 'point':
-            self.halo = halo
-            from .profiles.point import acceleration as halo_acc
-            from .profiles.point import mass_enc as halo_mass
-            if halo_pars == 'default':
-                self.halo_pars = {'M': 1e+12*M_sun}
-            else:
-                # checking halo parameters are understood
-                for k in halo_pars.keys():
-                    assert k in ['M']
-                self.halo_pars = halo_pars
-        elif halo is None:
-            assert False, "Need at least a halo for the Milky Way!"
+        # if 'default', use disc and spheroid parameters from McMillan (2017),
+        # otherwise check that parameters make sense
+        if dpars == 'default':
+            assert ndiscs == 4
+            d1 = {'sigma_0': 895.679 * (M_sun / pc**2), 'R_0': 2.49955 * kpc,
+                  'R_h': 0, 'z_0': 300 * pc, 'form': 'exponential'}
+            d2 = {'sigma_0': 183.444 * (M_sun / pc**2), 'R_0': 3.02134 * kpc,
+                  'R_h': 0, 'z_0': 900 * pc, 'form': 'exponential'}
+            d3 = {'sigma_0': 53.1319 * (M_sun / pc**2), 'R_0': 7 * kpc,
+                  'R_h': 4 * kpc, 'z_0': 85 * pc, 'form': 'sech'}
+            d4 = {'sigma_0': 2179.95 * (M_sun / pc**2), 'R_0': 1.5 * kpc,
+                  'R_h': 12 * kpc, 'z_0': 45 * pc, 'form': 'sech'}
+            dpars = [d1, d2, d3, d4]
         else:
-            raise ValueError("Unrecognised halo type")
-
-        # read disc type and get default parameters if necessary
-        if disc == 'miyamoto':
-            self.disc = disc
-            from .profiles.miyamoto import acceleration as disc_acc
-            from .profiles.miyamoto import M_enc_grid
-            if disc_pars == 'default':
-                # default parameters from LM10
-                self.disc_pars = {'M_disc': 1e+11*M_sun,
-                                  'a': 6.5*kpc,
-                                  'b': 0.26*kpc}
-            else:
-                # checking disc parameters are understood
-                for k in disc_pars.keys():
-                    assert k in ['M_disc', 'a', 'b']
-                self.disc_pars = disc_pars
-            # don't have analytic disc mass; set up grid to integrate density
-            # and then can interpolate disc mass
-            N_r = 2000  # number of cells in radial dimension
-            N_th = 1000  # number of cells in theta dimension
-            r_max = 400*kpc
-            r_edges, M_enc = M_enc_grid(N_r, N_th, r_max, **self.disc_pars)
-
-            def disc_mass(pos, **kwargs):
-                r = np.linalg.norm(pos, axis=-1)
-                mass = np.interp(r, r_edges, M_enc)
-                return mass
-
-        elif disc is None:
-            self.disc = disc
-            self.disc_pars = {}
-
-            def disc_acc(pos, **kwargs):
-                return np.zeros_like(pos)
-
-            def disc_mass(pos, **kwargs):
-                if pos.ndim == 1:
-                    M = 0
-                else:
-                    M = np.zeros(pos.shape[0])
-                return M
-
+            assert len(dpars) == ndiscs
+            keys_expected = ['sigma_0', 'R_0', 'R_h', 'form']
+            for i in range(ndiscs):
+                assert all(k in keys_expected for k in dpars[i].keys())
+                assert all(k in dpars[i].keys() for k in keys_expected)
+        if spars == 'default':
+            assert nspheroids == 2
+            s1 = {'alpha': 1.8, 'beta': 0, 'q': 0.5, 'r_cut': 2.1 * kpc,
+                  'r_0': 0.075 * kpc, 'rho_0': 98.351 * (M_sun / pc**3)}
+            s2 = {'alpha': 2, 'beta': 1, 'q': 1, 'r_cut': np.inf,
+                  'r_0': 19.5725 * kpc, 'rho_0': 0.00853702 * (M_sun / pc**3)}
+            spars = [s1, s2]
         else:
-            raise ValueError("Unrecognised disc type")
+            assert len(spars) == nspheroids
+            keys_expected = ['alpha', 'beta', 'q', 'r_cut', 'r_0', 'rho_0']
+            for i in range(nspheroids):
+                assert all(k in keys_expected for k in spars[i].keys())
+                assert all(k in spars[i].keys() for k in keys_expected)
 
-        # read bulge type and get default parameters if necessary
-        if bulge == 'hernquist':
-            self.bulge = bulge
-            from .profiles.hernquist import acceleration as bulge_acc
-            from .profiles.hernquist import mass_enc as bulge_mass
-            if bulge_pars == 'default':
-                # default values from LM10
-                self.bulge_pars = {'M_hernquist': 3.4e+10*M_sun,
-                                   'a': 0.7*kpc}
-            else:
-                assert False, "Not supported yet"
-        elif bulge is None:
-            self.bulge = bulge
-            self.bulge_pars = {}
+        # save Milky Way parameters
+        self.nspheroids = nspheroids
+        self.spars = spars
+        self.ndiscs = ndiscs
+        self.dpars = dpars
 
-            def bulge_acc(pos, **kwargs):
-                return np.zeros_like(pos)
+        # set up mw_poisson.MilkyWay instance and solve potential
+        gal = MilkyWay(ndiscs=ndiscs, dpars=dpars,
+                       nspheroids=nspheroids, spars=spars)
+        gal.solve_potential(verbose=True)
 
-            def bulge_mass(pos, **kwargs):
-                if pos.ndim == 1:
-                    M = 0
-                else:
-                    M = np.zeros(pos.shape[0])
-                return M
-        else:
-            raise ValueError("Unrecognised bulge type")
-
-        # create function for acceleration due to milky way
-        def MW_acc(pos):
-            acc = (halo_acc(pos, **self.halo_pars) +
-                   disc_acc(pos, **self.disc_pars) +
-                   bulge_acc(pos, **self.bulge_pars))
-            return acc
-        self.MW_acc = MW_acc
-
-        # create function for MW mass enclosed within given position
-        def MW_M_enc(pos):
-            M_enc = (halo_mass(pos, **self.halo_pars) +
-                     disc_mass(pos, **self.disc_pars) +
-                     bulge_mass(pos, **self.bulge_pars))
-            return M_enc
-        self.MW_M_enc = MW_M_enc
+        # create acceleration and m_enc functions
+        self.MW_acc = gal.acceleration
+        self.MW_M_enc = gal.mass_enclosed
 
         return
 
@@ -273,9 +206,11 @@ class SmogSimulation:
                          tracers, N1, N2, tracer_relax_time,
                          tracer_df):
         """
-        Set up satellite, i.e. create class methods for acceleration,
-        potential, and enclosed mass of satellite. Also, if tracer particles
-        are required, the function to initialise them is called here.
+        Set up satellite.
+
+        Create class methods for acceleration, potential, and enclosed mass of
+        satellite. Also, if tracer particles are required, the function to
+        initialise them is called here.
         """
         from .profiles.hernquist_truncated import acceleration as hacc
         from .profiles.hernquist_truncated import potential as hphi
@@ -291,19 +226,19 @@ class SmogSimulation:
 
         # create function for acceleration due to satellite
         def sat_acc(pos):
-            acc = hacc(pos-self.p0_x, self.sat_mass, self.sat_radius)
+            acc = hacc(pos - self.p0_x, self.sat_mass, self.sat_radius)
             return acc
         self.sat_acc = sat_acc
 
         # create function for potential due to satellite
         def sat_phi(pos):
-            phi = hphi(pos-self.p0_x, self.sat_mass, self.sat_radius)
+            phi = hphi(pos - self.p0_x, self.sat_mass, self.sat_radius)
             return phi
         self.sat_phi = sat_phi
 
         # create function for satellite mass enclosed within given position
         def sat_M_enc(pos):
-            M_enc = hmass(pos-self.p0_x, self.sat_mass, self.sat_radius)
+            M_enc = hmass(pos - self.p0_x, self.sat_mass, self.sat_radius)
             return M_enc
         self.sat_M_enc = sat_M_enc
 
@@ -323,10 +258,11 @@ class SmogSimulation:
 
     def _setup_modgrav(self, modgrav, beta, MW_r_screen, sat_r_screen):
         """
-        Set up fifth force, i.e. create class methods for fifth acceleration
-        on satellite and tracer particles.
-        """
+        Set up fifth force.
 
+        Create class methods for fifth acceleration on satellite and tracer
+        particles.
+        """
         self.modgrav = modgrav
         self.beta = beta
         self.MW_r_screen = MW_r_screen
@@ -354,39 +290,39 @@ class SmogSimulation:
             def mg_acc_tracer(pos):
 
                 r1 = np.linalg.norm(pos, axis=-1)
-                r2 = np.linalg.norm(pos-self.p0_x, axis=-1)
+                r2 = np.linalg.norm(pos - self.p0_x, axis=-1)
 
                 if pos.ndim == 1:
 
                     if r1 < MW_r_screen or r2 < sat_r_screen:
                         return np.zeros_like(pos)
 
-                    MW_mass_fac = 1 - MW_M_screen/self.MW_M_enc(pos)
-                    sat_mass_fac = 1 - sat_M_screen/self.sat_M_enc(pos)
-                    acc = 2*beta**2*MW_mass_fac*self.MW_acc(pos)
-                    acc += 2*beta**2*sat_mass_fac*self.sat_acc(pos)
+                    MW_mass_fac = 1 - MW_M_screen / self.MW_M_enc(pos)
+                    sat_mass_fac = 1 - sat_M_screen / self.sat_M_enc(pos)
+                    acc = 2 * beta**2 * MW_mass_fac * self.MW_acc(pos)
+                    acc += 2 * beta**2 * sat_mass_fac * self.sat_acc(pos)
                     return acc
 
                 else:
 
-                    inds = np.where((r1 > MW_r_screen) & (r2 > sat_r_screen))
+                    i = np.where((r1 > MW_r_screen) & (r2 > sat_r_screen))
                     acc = np.zeros_like(pos)
 
-                    Q1 = 1 - MW_M_screen/self.MW_M_enc(pos[inds])
-                    Q2 = 1 - sat_M_screen/self.sat_M_enc(pos[inds])
+                    Q1 = (1 - MW_M_screen / self.MW_M_enc(pos[i]))[:, None]
+                    Q2 = (1 - sat_M_screen / self.sat_M_enc(pos[i]))[:, None]
 
-                    acc[inds] = 2*beta**2*Q1[:, None]*self.MW_acc(pos[inds])
-                    acc[inds] += 2*beta**2*Q2[:, None]*self.sat_acc(pos[inds])
+                    acc[i] = 2 * beta**2 * Q1 * self.MW_acc(pos[i])
+                    acc[i] += 2 * beta**2 * Q2 * self.sat_acc(pos[i])
 
                     return acc
 
             # 'scalar charge' of satellite, i.e. mass fraction outside
             # screening radius.
-            if self.sat_r_screen > 10*self.sat_radius:
+            if self.sat_r_screen > 10 * self.sat_radius:
                 sat_Q = 0
             else:
-                xs = self.sat_r_screen/self.sat_radius
-                sat_Q = 1 - (121*xs**2)/(100*(1+xs)**2)
+                xs = self.sat_r_screen / self.sat_radius
+                sat_Q = 1 - (121 * xs**2) / (100 * (1 + xs)**2)
 
             # fifth force on satellite
             def mg_acc_satellite(pos):
@@ -395,8 +331,8 @@ class SmogSimulation:
                 if r < self.MW_r_screen:
                     acc = np.zeros_like(pos)
                 else:
-                    MW_mass_fac = 1 - MW_M_screen/self.MW_M_enc(pos)
-                    acc = 2*beta**2*sat_Q*MW_mass_fac*self.MW_acc(pos)
+                    MW_mass_fac = 1 - MW_M_screen / self.MW_M_enc(pos)
+                    acc = 2 * beta**2 * sat_Q * MW_mass_fac * self.MW_acc(pos)
                 return acc
 
         self.mg_acc_tracer = mg_acc_tracer
@@ -405,10 +341,12 @@ class SmogSimulation:
 
     def _add_tracers(self, N1, N2, tracer_relax_time, tracer_df):
         """
-        Set up tracer particles, i.e. take initial sample from chosen df, then
-        relax them in satellite potential for given time.
-        """
+        Set up tracer particles.
 
+        Take initial sample from chosen df, then relax them in satellite
+        potential for given time. Of these, downsample from those which have
+        never strayed beyond truncation radius.
+        """
         from .tracers import sample
 
         # total tracer number needs to be multiple of 50 for sampling to work
@@ -422,7 +360,7 @@ class SmogSimulation:
 
         # sample 2N initial positions and velocities form B+T hernquist DF.
         # N.B. 121M/100 is mass of full (untruncated) Hernquist distribution
-        x0, v0 = sample(2*N_tracers, M=121*M/100, a=a, df=tracer_df)
+        x0, v0 = sample(2 * N_tracers, M=121 * M / 100, a=a, df=tracer_df)
 
         # displace to satellite position (add bulk velocity later)
         x0 += self.sat_x0
@@ -432,8 +370,8 @@ class SmogSimulation:
 
         # downsample N of these, excluding those which are ever more than 10a
         # from satellite centre
-        r = np.linalg.norm(pos-self.sat_x0, axis=-1)
-        allowed = [(r[:, i] < 10*a).all() for i in range(2*N_tracers)]
+        r = np.linalg.norm(pos - self.sat_x0, axis=-1)
+        allowed = [(r[:, i] < 10 * a).all() for i in range(2 * N_tracers)]
         inds1 = np.where(np.array(allowed))[0]
         assert inds1.size > N_tracers
         inds2 = np.random.choice(inds1, N_tracers, replace=False)
@@ -463,14 +401,15 @@ class SmogSimulation:
 
     def _relax_tracers(self, x0, v0, t_max):
         """
-        Relax tracers in satellite potential. Note that this process also
-        adaptively finds timestep size for main simulation loop.
-        """
+        Relax tracers in satellite potential.
 
+        Note that this process also adaptively finds timestep size for main
+        simulation loop.
+        """
         N_part = x0.shape[0]
         N_snapshots = 500
-        positions = np.zeros((N_snapshots+1, N_part, 3))
-        velocities = np.zeros((N_snapshots+1, N_part, 3))
+        positions = np.zeros((N_snapshots + 1, N_part, 3))
+        velocities = np.zeros((N_snapshots + 1, N_part, 3))
         positions[0] = x0
         velocities[0] = v0
 
@@ -483,34 +422,34 @@ class SmogSimulation:
             x = np.copy(x0)
             v = np.copy(v0)
 
-            N_iter = int(t_max/dt)
+            N_iter = int(t_max / dt)
 
             assert N_iter % N_snapshots == 0
-            snap_interval = int(N_iter/N_snapshots)
+            snap_interval = int(N_iter / N_snapshots)
             snapcount = 1
 
             acc = self.sat_acc(x)
-            v_half = v - 0.5*dt*acc
+            v_half = v - 0.5 * dt * acc
 
             # main loop
             print("Relaxing tracer particles... trying dt={0:.2e}".format(dt))
             for i in range(N_iter):
 
-                print_progress(i, N_iter, interval=N_iter//50)
+                print_progress(i, N_iter, interval=N_iter // 50)
 
                 # calculate accelerations
                 acc = self.sat_acc(x)
 
                 # update velocities
-                v_half = v_half + acc*dt
+                v_half = v_half + acc * dt
 
                 # update positions
-                x = x + v_half*dt
+                x = x + v_half * dt
 
                 # snapshot
-                if (i+1) % snap_interval == 0:
+                if (i + 1) % snap_interval == 0:
                     # resync velocities
-                    v = v_half - 0.5*acc*dt
+                    v = v_half - 0.5 * acc * dt
 
                     # store x and v
                     positions[snapcount] = x
@@ -522,14 +461,14 @@ class SmogSimulation:
             vf = velocities[-1]
             xi = positions[0]
             xf = positions[-1]
-            Ki = 0.5*(vi[:, 0]**2 + vi[:, 1]**2 + vi[:, 2]**2)
-            Kf = 0.5*(vf[:, 0]**2 + vf[:, 1]**2 + vf[:, 2]**2)
+            Ki = 0.5 * (vi[:, 0]**2 + vi[:, 1]**2 + vi[:, 2]**2)
+            Kf = 0.5 * (vf[:, 0]**2 + vf[:, 1]**2 + vf[:, 2]**2)
             Ui = self.sat_phi(xi)
             Uf = self.sat_phi(xf)
             Ei = Ki + Ui
             Ef = Kf + Uf
 
-            res = np.max(np.abs((Ef-Ei)/Ei))
+            res = np.max(np.abs((Ef - Ei) / Ei))
             if res > tol:
                 dt /= 2
 
@@ -549,7 +488,6 @@ class SmogSimulation:
             Number of snapshots to store, EXCLUDING initial snapshot.
             Default is 500 (so 501 snapshots are saved overall).
         """
-
         self.times = np.array([0])
         self.t_max = t_max
 
@@ -562,49 +500,49 @@ class SmogSimulation:
         # N_iter is number of timesteps, need to be integer multiple of
         # N_frames, so that a snapshot can be made at a regular interval
         self.N_snapshots = N_snapshots
-        N_iter = int(t_max/dt)
+        N_iter = int(t_max / dt)
         if N_iter % N_snapshots != 0:
             raise ValueError("Need N_iter to be multiple of N_frames")
-        snap_interval = int(N_iter/N_snapshots)
+        snap_interval = int(N_iter / N_snapshots)
 
         # create arrays in which outputs are stored
         snapcount = 0
-        p0_positions = np.zeros((N_snapshots+1, 3))
+        p0_positions = np.zeros((N_snapshots + 1, 3))
         p0_positions[0] = self.p0_x
-        p0_velocities = np.zeros((N_snapshots+1, 3))
+        p0_velocities = np.zeros((N_snapshots + 1, 3))
         p0_velocities[0] = self.p0_v
         if self.tracers:
-            p1_positions = np.zeros((N_snapshots+1, self.N1, 3))
+            p1_positions = np.zeros((N_snapshots + 1, self.N1, 3))
             p1_positions[0] = self.p1_x
-            p1_velocities = np.zeros((N_snapshots+1, self.N1, 3))
+            p1_velocities = np.zeros((N_snapshots + 1, self.N1, 3))
             p1_velocities[0] = self.p1_v
-            p2_positions = np.zeros((N_snapshots+1, self.N2, 3))
+            p2_positions = np.zeros((N_snapshots + 1, self.N2, 3))
             p2_positions[0] = self.p2_x
-            p2_velocities = np.zeros((N_snapshots+1, self.N2, 3))
+            p2_velocities = np.zeros((N_snapshots + 1, self.N2, 3))
             p2_velocities[0] = self.p2_v
-            p1_disrupted = np.zeros((N_snapshots+1, self.N1), dtype=bool)
-            p2_disrupted = np.zeros((N_snapshots+1, self.N2), dtype=bool)
+            p1_disrupted = np.zeros((N_snapshots + 1, self.N1), dtype=bool)
+            p2_disrupted = np.zeros((N_snapshots + 1, self.N2), dtype=bool)
 
         # calculate initial accelerations, then desynchronise velocities
         # for leapfrog integration
         p0_acc = self.MW_acc(self.p0_x)
         p0_acc += self.mg_acc_satellite(self.p0_x)
-        p0_v_half = self.p0_v - 0.5*dt*p0_acc
+        p0_v_half = self.p0_v - 0.5 * dt * p0_acc
         if self.tracers:
             p1_acc = self.MW_acc(self.p1_x)
             p1_acc += self.sat_acc(self.p1_x)
             p1_acc += self.mg_acc_tracer(self.p1_x)
             p2_acc = self.MW_acc(self.p2_x)
             p2_acc += self.sat_acc(self.p2_x)
-            p1_v_half = self.p1_v - 0.5*dt*p1_acc
-            p2_v_half = self.p2_v - 0.5*dt*p2_acc
+            p1_v_half = self.p1_v - 0.5 * dt * p1_acc
+            p2_v_half = self.p2_v - 0.5 * dt * p2_acc
 
         # main loop
         t = 0
         print("Main loop...")
         for i in range(N_iter):
 
-            print_progress(i, N_iter, interval=N_iter//50)
+            print_progress(i, N_iter, interval=N_iter // 50)
 
             # calculate accelerations
             p0_acc = self.MW_acc(self.p0_x)
@@ -618,22 +556,22 @@ class SmogSimulation:
 
             # timestep
             t += self.dt
-            p0_v_half = p0_v_half + p0_acc*dt
-            self.p0_x = self.p0_x + p0_v_half*dt
+            p0_v_half = p0_v_half + p0_acc * dt
+            self.p0_x = self.p0_x + p0_v_half * dt
             if self.tracers:
-                p1_v_half = p1_v_half + p1_acc*dt
-                p2_v_half = p2_v_half + p2_acc*dt
-                self.p1_x = self.p1_x + p1_v_half*dt
-                self.p2_x = self.p2_x + p2_v_half*dt
+                p1_v_half = p1_v_half + p1_acc * dt
+                p2_v_half = p2_v_half + p2_acc * dt
+                self.p1_x = self.p1_x + p1_v_half * dt
+                self.p2_x = self.p2_x + p2_v_half * dt
 
             # snapshot
-            if (i+1) % snap_interval == 0:
+            if (i + 1) % snap_interval == 0:
 
                 snapcount += 1
                 self.times = np.append(self.times, t)
 
                 # resynchronise satellite velocity
-                self.p0_v = p0_v_half - 0.5*p0_acc*dt
+                self.p0_v = p0_v_half - 0.5 * p0_acc * dt
 
                 # store satellite position and velocity
                 p0_positions[snapcount] = self.p0_x
@@ -641,8 +579,8 @@ class SmogSimulation:
 
                 if self.tracers:
                     # resynchronised tracer velocities
-                    self.p1_v = p1_v_half - 0.5*p1_acc*dt
-                    self.p2_v = p2_v_half - 0.5*p2_acc*dt
+                    self.p1_v = p1_v_half - 0.5 * p1_acc * dt
+                    self.p2_v = p2_v_half - 0.5 * p2_acc * dt
 
                     # store positions and velocities
                     p1_positions[snapcount] = self.p1_x
@@ -653,8 +591,8 @@ class SmogSimulation:
                     # masks indicating which particles are disrupted
                     dv1 = self.p1_v - self.p0_v
                     dv2 = self.p2_v - self.p0_v
-                    K1 = 0.5*(dv1[:, 0]**2 + dv1[:, 1]**2 + dv1[:, 2]**2)
-                    K2 = 0.5*(dv2[:, 0]**2 + dv2[:, 1]**2 + dv2[:, 2]**2)
+                    K1 = 0.5 * (dv1[:, 0]**2 + dv1[:, 1]**2 + dv1[:, 2]**2)
+                    K2 = 0.5 * (dv2[:, 0]**2 + dv2[:, 1]**2 + dv2[:, 2]**2)
                     U1 = self.sat_phi(self.p1_x)
                     U2 = self.sat_phi(self.p2_x)
                     E1 = K1 + U1
@@ -677,10 +615,10 @@ class SmogSimulation:
             self.p2_disrupted = p2_disrupted
 
         # resynchronise velocities
-        self.p0_v = p0_v_half - 0.5*dt*p0_acc
+        self.p0_v = p0_v_half - 0.5 * dt * p0_acc
         if self.tracers:
-            self.p1_v = p1_v_half - 0.5*dt*p1_acc
-            self.p2_v = p2_v_half - 0.5*dt*p2_acc
+            self.p1_v = p1_v_half - 0.5 * dt * p1_acc
+            self.p2_v = p2_v_half - 0.5 * dt * p2_acc
 
         # calculate and store arrays of particle disruption times
         if self.tracers:
@@ -699,11 +637,12 @@ class SmogSimulation:
 
     def save(self, filename):
         """
-        Save simulation data as a .hdf5 file. All relevant simulation
-        parameters are stored, as well as 4 quantities at each snapshot:
-        position, velocity, whether a particle is gravitationally unbound
-        ('Disrupted'), and the index of the timestep at which the particle was
-        gravitationally unbound ('DisruptionTime').
+        Save simulation data as a .hdf5 file.
+
+        All relevant simulation parameters are stored, as well as 4 quantities
+        at each snapshot: position, velocity, whether a particle is
+        gravitationally unbound ('Disrupted'), and the index of the timestep at
+        which the particle was gravitationally unbound ('DisruptionTime').
 
         Parameters
         ----------
@@ -715,11 +654,12 @@ class SmogSimulation:
         if filename[-5:] == '.hdf5':
             f = h5py.File(filename, 'w')
         else:
-            f = h5py.File(filename+".hdf5", 'w')
+            f = h5py.File(filename + ".hdf5", 'w')
 
         # set up header group
         header = f.create_group("Header")
-        header.attrs['HaloType'] = self.halo
+        header.attrs['NDiscs'] = self.ndiscs
+        header.attrs['NSpheroids'] = self.nspheroids
         header.attrs['SatelliteMass'] = self.sat_mass
         header.attrs['SatelliteRadius'] = self.sat_radius
         header.attrs['SatelliteX0'] = self.sat_x0
@@ -737,29 +677,15 @@ class SmogSimulation:
         header.attrs['TimeMax'] = self.t_max
         header.attrs['TimestepSize'] = self.dt
 
-        # add subgroups to header containing parameters for halo, disc, bulge
-        halo = f.create_group("Header/Halo")
-        halo.attrs['HaloType'] = self.halo
-        for k, v in self.halo_pars.items():
-            halo.attrs[k] = v
-
-        if self.disc is not None:
-            header.attrs['DiscType'] = self.disc
-            disc = f.create_group("Header/Disc")
-            disc.attrs['DiscType'] = self.disc
-            for k, v in self.disc_pars.items():
-                disc.attrs[k] = v
-        else:
-            header.attrs['DiscType'] = 'None'
-
-        if self.bulge is not None:
-            header.attrs['BulgeType'] = self.bulge
-            bulge = f.create_group("Header/Bulge")
-            bulge.attrs['BulgeType'] = self.bulge
-            for k, v in self.bulge_pars.items():
-                bulge.attrs[k] = v
-        else:
-            header.attrs['BulgeType'] = 'None'
+        # create subgroups to store MW disc and spheroid parameters
+        for i in range(self.ndiscs):
+            grp = f.create_group("Header/Disc_" + str(i))
+            for k, v in self.dpars[i].items():
+                grp.attrs[k] = v
+        for i in range(self.nspheroids):
+            grp = f.create_group("Header/Spheroid_" + str(i))
+            for k, v in self.spars[i].items():
+                grp.attrs[k] = v
 
         # array of times
         f.create_dataset('SnapshotTimes', data=self.times)

@@ -25,23 +25,14 @@ class SmogOutput:
 
     Attributes
     ----------
-    halo : str
-        Type of Milky Way dark matter halo (e.g., 'NFW', 'point' etc.)
-    halo_pars : dict
-        Parameters of Milky Way halo. Keys depend on halo type (see
-        SmogSimulation documentation for more details)
-    disc : str/None
-        Type of Milky Way disc (e.g., 'Miyamoto'). Can be None if no disc was
-        present in simulation.
-    disc_pars : dict
-        Parameters of Milky Way disc. Keys depend on disc type (see
-        SmogSimulation documentation for more details)
-    bulge : str
-        Type of Milky Way bulge (e.g., 'Hernquist'). Can be None if no bulge
-        was present in simulation.
-    bulge_pars : dict
-        Parameters of Milky Way bulge. Keys depend on bulge type (see
-        SmogSimulation documentation for more details)
+    ndiscs : int
+        Number of disc components in galaxy.
+    dpars : list of dicts, length ndiscs
+        See smoggy.Simulation documentation for more info.
+    nspheroids : int
+        Number of spheroidal components in galaxy. Default is 2.
+    spars : list of dicts, length nspheroids
+        See smoggy.Simulation documentation for more info.
     sat_mass : float
         Total mass of (truncated Hernquist) satellite. UNITS: kilograms.
     sat_radius : float
@@ -116,19 +107,19 @@ class SmogOutput:
     p2_longitudes : (N_snapshots+1, N2) array of floats
         See p1_longitudes above.
     """
+
     def __init__(self, filename):
 
         # check correct file ending
         if filename[-5:] == '.hdf5':
             f = h5py.File(filename, 'r')
         else:
-            f = h5py.File(filename+".hdf5", 'r')
+            f = h5py.File(filename + ".hdf5", 'r')
 
         # read header
         header = f["Header"]
-        self.halo = header.attrs['HaloType']
-        self.disc = header.attrs['DiscType']
-        self.bulge = header.attrs['BulgeType']
+        self.ndiscs = header.attrs['NDiscs']
+        self.nspheroids = header.attrs['NSpheroids']
         self.sat_mass = header.attrs['SatelliteMass']
         self.sat_radius = header.attrs['SatelliteRadius']
         self.modgrav = header.attrs['ModGrav']
@@ -151,16 +142,13 @@ class SmogOutput:
         self.t_max = header.attrs['TimeMax']
         self.dt = header.attrs['TimestepSize']
 
-        # add subgroups to header containing parameters for halo, disc, bulge
-        self.halo_pars = dict(f['Header/Halo'].attrs)
-        if self.disc != 'None':
-            self.disc_pars = dict(f['Header/Disc'].attrs)
-        else:
-            self.disc_pars = {}
-        if self.bulge != 'None':
-            self.bulge_pars = dict(f['Header/Bulge'].attrs)
-        else:
-            self.bulge_pars = {}
+        # disc and spheroid parameters
+        self.dpars = []
+        self.spars = []
+        for i in range(self.ndiscs):
+            self.dpars.append(dict(f['Header/Disc_' + str(i)].attrs))
+        for i in range(self.nspheroids):
+            self.spars.append(dict(f['Header/Spheroid_' + str(i)].attrs))
 
         # array of times
         self.times = np.array(f['SnapshotTimes'])
@@ -203,25 +191,27 @@ class SmogOutput:
 
     def _calc_longitudes(self):
         """
-        Calculate longitudes of tracer particles in instantaneous orbital plane
-        of the satellite
+        Calculate longitudes of tracer particles.
+
+        Note: calculation performed in instantaneous orbital plane of
+        satellite.
         """
         assert self.tracers
 
         # zp is z unit vector at all times, shape 501 x 3
         zp = np.cross(self.p0_positions, self.p0_velocities)
-        zp = zp/np.linalg.norm(zp, axis=-1)[:, None]
+        zp = zp / np.linalg.norm(zp, axis=-1)[:, None]
 
         # xp and yp are x and y unit vectors
         xp = self.p0_positions
-        xp = xp/np.linalg.norm(xp, axis=-1)[:, None]
+        xp = xp / np.linalg.norm(xp, axis=-1)[:, None]
         yp = np.cross(zp, xp)
 
         # project particle positions into orbital x-y plane
-        p1_xp = np.sum(self.p1_positions*xp[:, None, :], axis=-1)
-        p1_yp = np.sum(self.p1_positions*yp[:, None, :], axis=-1)
-        p2_xp = np.sum(self.p2_positions*xp[:, None, :], axis=-1)
-        p2_yp = np.sum(self.p2_positions*yp[:, None, :], axis=-1)
+        p1_xp = np.sum(self.p1_positions * xp[:, None, :], axis=-1)
+        p1_yp = np.sum(self.p1_positions * yp[:, None, :], axis=-1)
+        p2_xp = np.sum(self.p2_positions * xp[:, None, :], axis=-1)
+        p2_yp = np.sum(self.p2_positions * yp[:, None, :], axis=-1)
 
         # get longitudes
         p1_phi = np.arctan2(p1_yp, p1_xp)
@@ -230,13 +220,13 @@ class SmogOutput:
         # add/subtract multiples of 2pi for particles on higher wraps.
         dp = np.vstack((np.zeros((1, self.N1)), np.diff(p1_phi, axis=0)))
         for j in range(self.N1):
-            changes = np.where(np.abs(dp[:, j]) > 1.1*pi)[0]
+            changes = np.where(np.abs(dp[:, j]) > 1.1 * pi)[0]
             for i in range(changes.size):
-                p1_phi[changes[i]:, j] -= 2*pi*np.sign(dp[changes[i], j])
+                p1_phi[changes[i]:, j] -= 2 * pi * np.sign(dp[changes[i], j])
         dp = np.vstack((np.zeros((1, self.N2)), np.diff(p2_phi, axis=0)))
         for j in range(self.N2):
-            changes = np.where(np.abs(dp[:, j]) > 1.1*pi)[0]
+            changes = np.where(np.abs(dp[:, j]) > 1.1 * pi)[0]
             for i in range(changes.size):
-                p2_phi[changes[i]:, j] -= 2*pi*np.sign(dp[changes[i], j])
+                p2_phi[changes[i]:, j] -= 2 * pi * np.sign(dp[changes[i], j])
 
         return p1_phi, p2_phi
