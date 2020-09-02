@@ -124,7 +124,8 @@ class SmogSimulation:
                  ndiscs=4, dpars='default', nspheroids=2, spars='default',
                  modgrav=False, beta=None, MW_r_screen=None, sat_r_screen=None,
                  tracers=False, N1=None, N2=None, tracer_relax_time=1e+17,
-                 tracer_df='isotropic'):
+                 tracer_df='isotropic',
+                 tracer_relax_tol=0.02):
 
         self._setup_MW(ndiscs=ndiscs, dpars=dpars,
                        nspheroids=nspheroids, spars=spars)
@@ -133,7 +134,8 @@ class SmogSimulation:
                               sat_radius=sat_radius, sat_mass=sat_mass,
                               tracers=tracers, N1=N1, N2=N2,
                               tracer_relax_time=tracer_relax_time,
-                              tracer_df=tracer_df)
+                              tracer_df=tracer_df,
+                              tracer_relax_tol=tracer_relax_tol)
 
         self._setup_modgrav(modgrav=modgrav, beta=beta,
                             MW_r_screen=MW_r_screen, sat_r_screen=sat_r_screen)
@@ -204,7 +206,7 @@ class SmogSimulation:
 
     def _setup_satellite(self, sat_x0, sat_v0, sat_radius, sat_mass,
                          tracers, N1, N2, tracer_relax_time,
-                         tracer_df):
+                         tracer_df, tracer_relax_tol):
         """
         Set up satellite.
 
@@ -249,7 +251,8 @@ class SmogSimulation:
             self.N2 = N2
             self._add_tracers(N1=N1, N2=N2,
                               tracer_relax_time=tracer_relax_time,
-                              tracer_df=tracer_df)
+                              tracer_df=tracer_df,
+                              tracer_relax_tol=tracer_relax_tol)
         else:
             self.N1 = None
             self.N2 = None
@@ -339,7 +342,8 @@ class SmogSimulation:
         self.mg_acc_satellite = mg_acc_satellite
         return
 
-    def _add_tracers(self, N1, N2, tracer_relax_time, tracer_df):
+    def _add_tracers(self, N1, N2, tracer_relax_time, tracer_df,
+                     tracer_relax_tol):
         """
         Set up tracer particles.
 
@@ -366,7 +370,8 @@ class SmogSimulation:
         x0 += self.sat_x0
 
         # integrate these tracers under satellite potential
-        pos, vel = self._relax_tracers(x0, v0, t_max=tracer_relax_time)
+        pos, vel = self._relax_tracers(x0, v0, t_max=tracer_relax_time,
+                                       tol=tracer_relax_tol)
 
         # downsample N of these, excluding those which are ever more than 10a
         # from satellite centre
@@ -396,10 +401,14 @@ class SmogSimulation:
         self.p2_v0 = p2_v + self.sat_v0
         self.p2_x = np.copy(self.p2_x0)
         self.p2_v = np.copy(self.p2_v0)
+        self.p1_prerelax_x0 = x0[inds2][mask]
+        self.p1_prerelax_v0 = v0[inds2][mask] + self.sat_v0
+        self.p2_prerelax_x0 = x0[inds2][~mask]
+        self.p2_prerelax_v0 = v0[inds2][~mask] + self.sat_v0
 
         return
 
-    def _relax_tracers(self, x0, v0, t_max):
+    def _relax_tracers(self, x0, v0, t_max, tol):
         """
         Relax tracers in satellite potential.
 
@@ -416,7 +425,6 @@ class SmogSimulation:
         # keep halving timestep size until energy conserved to within 2%
         dt = t_max / N_snapshots
         res = 1
-        tol = 0.02
         while res > tol:
 
             x = np.copy(x0)

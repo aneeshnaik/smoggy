@@ -145,15 +145,17 @@ def sample(N, M, a, df='isotropic'):
 
     # burn in
     print("Burning in...")
-    for i, result in enumerate(s.sample(p0, iterations=n_burnin)):
-            print_progress(i, n_burnin, interval=n_burnin//50)
+    s.run_mcmc(p0, n_burnin)
+    #for i, result in enumerate(s.sample(p0, iterations=n_burnin)):
+    #        print_progress(i, n_burnin, interval=n_burnin//50)
 
     # take final sample
     p0 = s.chain[:, -1, :]
     s.reset()
     print("Taking final sample...")
-    for i, result in enumerate(s.sample(p0, iterations=n_iter, thin=50)):
-            print_progress(i, n_iter)
+    s.run_mcmc(p0, n_iter, thin=50)
+    #for i, result in enumerate(s.sample(p0, iterations=n_iter, thin=50)):
+    #        print_progress(i, n_iter)
     pos = s.flatchain[:, :3]
     vel = s.flatchain[:, 3:]
 
