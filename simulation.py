@@ -284,7 +284,10 @@ class SmogSimulation:
         else:
 
             # MW mass within screening radius
-            MW_M_screen = self.MW_M_enc(np.array([self.MW_r_screen, 0, 0]))
+            if self.MW_r_screen == 0:
+                MW_M_screen = 0
+            else:
+                MW_M_screen = self.MW_M_enc(np.array([self.MW_r_screen, 0, 0]))
 
             screen_pos = self.sat_x0 + np.array([self.sat_r_screen, 0, 0])
             sat_M_screen = self.sat_M_enc(screen_pos)
